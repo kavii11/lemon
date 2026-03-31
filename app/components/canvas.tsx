@@ -11,7 +11,11 @@ type Section = {
   bg: string;
 };
 
-export default function Canvas() {
+export default function Canvas({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [sections, setSections] = useState<Section[]>([
     { id: 1, type: null, width: 100, height: 150, bg: "#ffffff" },
     { id: 2, type: null, width: 100, height: 250, bg: "#ffffff" },
