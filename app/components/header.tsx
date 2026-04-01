@@ -52,7 +52,7 @@ export default function Header() {
           <img
             src="/LogoLemon.png"
             alt="Lemon Icon"
-            className="h-10 w-auto object-contain"
+            className="h-8 w-auto object-contain"
             draggable="false"
           />
 
@@ -60,7 +60,7 @@ export default function Header() {
           <img
             src="/Brandname.png"
             alt="Brand Name"
-            className="h-4 w-auto object-contain"
+            className="h-5 w-auto object-contain"
             draggable="false"
           />
         </div>

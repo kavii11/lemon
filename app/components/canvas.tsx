@@ -19,7 +19,34 @@ import BlockRenderer from "./builder/BlockRenderer";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
-function SortableSection({ section, index, isOver }: any) {
+// 🔥 Block
+function SortableBlock({ block, sectionId }: any) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: block.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <div {...listeners} className="text-xs text-gray-400 cursor-move">
+        Drag Block
+      </div>
+
+      <BlockRenderer block={block} sectionId={sectionId} />
+    </div>
+  );
+}
+
+// 🔥 Section
+function SortableSection({ section, index, dropInfo }: any) {
   const {
     attributes,
     listeners,
@@ -36,64 +63,71 @@ function SortableSection({ section, index, isOver }: any) {
   const { addBlock, addSection } = useBuilder();
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      className="relative group"
-    >
+    <div ref={setNodeRef} style={style} {...attributes} className="relative">
+
       {/* ➕ Add Section ABOVE */}
       <button
         onClick={() => addSection("section", index - 1)}
         className="absolute -top-4 left-1/2 -translate-x-1/2 
-        bg-white border rounded-full p-2 shadow opacity-0 group-hover:opacity-100"
+        bg-white border rounded-full p-2 shadow"
       >
         <Plus size={16} />
       </button>
 
-      {/* Drag Handle */}
-      <div
-        {...listeners}
-        className="cursor-move text-xs text-gray-400 mb-2"
-      >
+      {/* Drag Section */}
+      <div {...listeners} className="cursor-move text-xs text-gray-400 mb-2">
         Drag Section
       </div>
 
-      {/* 🔥 SECTION BOX WITH HIGHLIGHT */}
-      <div
-        className={`border-2 rounded-xl p-6 min-h-[120px] transition
-        ${
-          isOver
-            ? "border-blue-500 bg-blue-50"
-            : "border-dashed bg-gray-50"
-        }`}
-      >
-        <div className="text-xs text-gray-400 mb-2 uppercase">
-          {section.type}
-        </div>
+      <div className="border-2 border-dashed rounded-xl p-6 bg-gray-50">
 
-        {section.blocks.length === 0 && (
-          <div className="text-gray-400 text-sm text-center py-6">
-            Drop here
-          </div>
+        {/* 🔵 DROP LINE */}
+        {dropInfo?.sectionId === section.id && (
+          <div
+            className="h-1 bg-blue-500 rounded mb-2"
+            style={{
+              marginTop: dropInfo.index * 8,
+            }}
+          />
         )}
 
-        {section.blocks.map((block: any) => (
-          <BlockRenderer
-            key={block.id}
-            block={block}
-            sectionId={section.id}
-          />
-        ))}
+        <SortableContext
+          items={(section.blocks || [])
+            .filter((b: any) => b && b.id)
+            .map((b: any) => b.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {(section.blocks || [])
+            .filter((block: any) => block && block.id)
+            .map((block: any, i: number) => (
+              <div key={block.id}>
+                {/* 🔥 DROP BETWEEN BLOCKS */}
+                {dropInfo?.sectionId === section.id &&
+                  dropInfo.index === i && (
+                    <div className="h-1 bg-blue-500 rounded my-2" />
+                  )}
+
+                <SortableBlock
+                  block={block}
+                  sectionId={section.id}
+                />
+              </div>
+            ))}
+        </SortableContext>
+
+        {/* 🔥 DROP AT END */}
+        {dropInfo?.sectionId === section.id &&
+          dropInfo.index === section.blocks.length && (
+            <div className="h-1 bg-blue-500 rounded mt-2" />
+          )}
 
         {/* ➕ Add Block */}
         <div className="flex justify-center mt-4">
           <button
             onClick={() => addBlock(section.id, "text")}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-black"
+            className="text-sm text-gray-500"
           >
-            <Plus size={16} />
-            Add Block
+            + Add Block
           </button>
         </div>
       </div>
@@ -102,7 +136,7 @@ function SortableSection({ section, index, isOver }: any) {
       <button
         onClick={() => addSection("section", index)}
         className="absolute -bottom-4 left-1/2 -translate-x-1/2 
-        bg-white border rounded-full p-2 shadow opacity-0 group-hover:opacity-100"
+        bg-white border rounded-full p-2 shadow"
       >
         <Plus size={16} />
       </button>
@@ -111,38 +145,67 @@ function SortableSection({ section, index, isOver }: any) {
 }
 
 export default function Canvas() {
-  const { sections, moveSection, addBlock } = useBuilder();
-  const [overSection, setOverSection] = useState<string | null>(null);
+  const { sections, moveSection, moveBlock, addBlock } = useBuilder();
 
-  // 🔥 Detect hover section
+  const [dropInfo, setDropInfo] = useState<{
+    sectionId: string;
+    index: number;
+  } | null>(null);
+
+  // 🔥 Detect exact position
   const handleDragOver = (event: DragOverEvent) => {
-    const { over } = event;
+    const { over, active } = event;
     if (!over) return;
 
-    setOverSection(over.id as string);
+    let foundSection = null;
+
+    for (const section of sections) {
+      const index = section.blocks.findIndex(
+        (b) => b?.id === over.id
+      );
+
+      if (index !== -1) {
+        foundSection = {
+          sectionId: section.id,
+          index,
+        };
+        break;
+      }
+
+      if (section.id === over.id) {
+        foundSection = {
+          sectionId: section.id,
+          index: section.blocks.length,
+        };
+      }
+    }
+
+    setDropInfo(foundSection);
   };
 
-  // 🔥 Handle drop
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over) return;
+  const { active, over } = event;
+  if (!over || !dropInfo) return;
 
-    const type = active.data.current?.type;
+  const isSidebar = active.data.current?.from === "sidebar";
+  const type = active.data.current?.type;
 
-    // ✅ Sidebar → specific section
-    if (type) {
-      addBlock(over.id as string, type);
-      setOverSection(null);
-      return;
-    }
+  // ✅ FROM SIDEBAR
+  if (isSidebar && type) {
+    addBlock(dropInfo.sectionId, type, dropInfo.index);
+    setDropInfo(null);
+    return;
+  }
 
-    // ✅ Section reorder
-    if (active.id !== over.id) {
-      moveSection(active.id as string, over.id as string);
-    }
+  // ✅ MOVE BLOCK
+  moveBlock(
+    dropInfo.sectionId,
+    active.id as string,
+    over.id as string
+  );
 
-    setOverSection(null);
-  };
+  setDropInfo(null);
+};
 
   return (
     <DndContext
@@ -160,7 +223,7 @@ export default function Canvas() {
               key={section.id}
               section={section}
               index={index}
-              isOver={overSection === section.id}
+              dropInfo={dropInfo}
             />
           ))}
         </div>

@@ -1,9 +1,7 @@
 "use client";
 
-"use client";
-
 import { useDraggable } from "@dnd-kit/core";
-import { Inter } from "next/font/google"; // ✅ ADD THIS
+import { Inter } from "next/font/google";
 import {
   Layout,
   Type,
@@ -14,6 +12,9 @@ import {
   FileText,
   FormInput,
   Video,
+  Layers,
+  Grid,
+  List,
 } from "lucide-react";
 
 const inter = Inter({
@@ -21,14 +22,17 @@ const inter = Inter({
   weight: ["500"],
 });
 
+// 🔥 FULL BUILDER LIBRARY
 const sections = [
   {
     title: "Layout",
     items: [
       { name: "section", icon: Layout },
       { name: "container", icon: Square },
-      { name: "2col", icon: Columns },
-      { name: "3col", icon: Columns },
+      { name: "grid", icon: Grid },
+      { name: "2-columns", icon: Columns },
+      { name: "3-columns", icon: Columns },
+      { name: "stack", icon: Layers },
     ],
   },
   {
@@ -39,31 +43,19 @@ const sections = [
       { name: "button", icon: Square },
       { name: "image", icon: Image },
       { name: "video", icon: Video },
+      { name: "list", icon: List },
     ],
   },
   {
-    title: "Website Sections",
+    title: "Sections",
     items: [
       { name: "navbar", icon: Layout },
       { name: "hero", icon: Layout },
       { name: "features", icon: Layout },
+      { name: "pricing", icon: Layout },
+      { name: "testimonials", icon: Layout },
+      { name: "cta", icon: Layout },
       { name: "footer", icon: Layout },
-    ],
-  },
-  {
-    title: "E-Commerce",
-    items: [
-      { name: "product", icon: ShoppingCart },
-      { name: "productlist", icon: ShoppingCart },
-      { name: "cart", icon: ShoppingCart },
-    ],
-  },
-  {
-    title: "Blog",
-    items: [
-      { name: "blog", icon: FileText },
-      { name: "paragraph", icon: FileText },
-      { name: "imageblock", icon: Image },
     ],
   },
   {
@@ -71,15 +63,39 @@ const sections = [
     items: [
       { name: "input", icon: FormInput },
       { name: "textarea", icon: FormInput },
+      { name: "select", icon: FormInput },
+      { name: "checkbox", icon: FormInput },
       { name: "submit", icon: Square },
+    ],
+  },
+  {
+    title: "E-Commerce",
+    items: [
+      { name: "product", icon: ShoppingCart },
+      { name: "product-list", icon: ShoppingCart },
+      { name: "cart", icon: ShoppingCart },
+      { name: "checkout", icon: ShoppingCart },
+    ],
+  },
+  {
+    title: "Blog",
+    items: [
+      { name: "blog-list", icon: FileText },
+      { name: "blog-post", icon: FileText },
+      { name: "paragraph", icon: FileText },
+      { name: "image-block", icon: Image },
     ],
   },
 ];
 
+// 🔥 DRAG ITEM
 function DragItem({ type, Icon, label }: any) {
   const { attributes, listeners, setNodeRef } = useDraggable({
-    id: type,
-    data: { type },
+    id: `sidebar-${type}-${crypto.randomUUID()}`, // ✅ unique
+    data: {
+      type,
+      source: "sidebar",
+    },
   });
 
   return (
@@ -98,69 +114,60 @@ function DragItem({ type, Icon, label }: any) {
   );
 }
 
+// 🔥 MAIN SIDEBAR
 export default function Sidebar() {
   return (
     <aside className="fixed top-16 left-0 h-[calc(100vh-4rem)] w-[20%] bg-white border-r flex flex-col">
 
-  {/* 🔝 Brand */}
-  <div className="flex items-center justify-center gap-2 py-2">
-    <img 
-    src="/LogoLemon.png"
-    alt="Lemon Icon"
-    className="h-8 w-auto object-contain"
-    draggable="false"
-  />
-  <p className={`${inter.className} text-[16px] font-semibold text-zinc-800 tracking-wide`}>
-  Dashboard
-</p>
+      {/* 🔝 BRAND (RESTORED ✅) */}
+      <div className="flex items-center justify-center gap-2 py-3">
+        <img
+          src="/LogoLemon.png"
+          alt="Logo"
+          className="h-8 object-contain"
+          draggable="false"
+        />
+        <p className={`${inter.className} text-[15px] font-semibold text-zinc-800`}>
+          Dashboard
+        </p>
+      </div>
 
-  </div>
+      <div className="border-t" />
 
-  {/* ✅ Divider below brand */}
- 
-    <div className="border-t"></div>
- 
+      {/* 🔥 COMPONENT LIBRARY */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
 
-  {/* 🔥 Scrollable Builder Panel */}
-  <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {sections.map((section, i) => (
+          <div key={i}>
+            <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase">
+              {section.title}
+            </h3>
 
-    {sections.map((section, i) => (
-      <div key={i}>
-        
-        <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">
-          {section.title}
-        </h3>
-
-        <div className="grid grid-cols-3 gap-3">
-          {section.items.map((item, idx) => (
-            <DragItem
-              key={idx}
-              type={item.name}
-              Icon={item.icon}
-              label={item.name}
-            />
-          ))}
-        </div>
+            <div className="grid grid-cols-3 gap-3">
+              {section.items.map((item, idx) => (
+                <DragItem
+                  key={idx}
+                  type={item.name}
+                  Icon={item.icon}
+                  label={item.name}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
 
       </div>
-    ))}
 
-  </div>
+      {/* 🔻 FOOTER (RESTORED ✅) */}
+      <div className="border-t p-4 space-y-2 text-right">
+        <p className="text-sm text-gray-600 hover:text-blue-600 cursor-pointer">
+          Guide
+        </p>
+        <p className="text-sm text-gray-600 hover:text-blue-600 cursor-pointer">
+          How to use?
+        </p>
+      </div>
 
-  {/* ✅ Divider above bottom links */}
-      <div className="border-t"></div>
-
-
-  {/* 🔻 Bottom Links */}
-  <div className="p-4 space-y-2 text-right">
-    <p className="text-sm text-gray-600 hover:text-blue-600 cursor-pointer transition underline-offset-4 hover:underline">
-      Guide
-    </p>
-    <p className="text-sm text-gray-600 hover:text-blue-600 cursor-pointer transition underline-offset-4 hover:underline">
-      How to use?
-    </p>
-  </div>
-
-</aside>
+    </aside>
   );
 }
