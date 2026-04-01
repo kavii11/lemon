@@ -37,7 +37,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-screen font-[var(--font-inter)]">
+      <body className="min-h-screen bg-[#ffffff] font-[var(--font-inter)]">
 
         {/* Header + Sidebar */}
         <Header />
