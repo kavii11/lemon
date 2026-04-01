@@ -18,7 +18,7 @@ import {
 
 const inter = Inter({
   subsets: ["latin"],
-  weight: ["600"],
+  weight: ["500"],
 });
 
 const sections = [
@@ -103,7 +103,7 @@ export default function Sidebar() {
     <aside className="fixed top-16 left-0 h-[calc(100vh-4rem)] w-[20%] bg-white border-r flex flex-col">
 
   {/* 🔝 Brand */}
-  <div className="flex items-center justify-center gap-2 py-3">
+  <div className="flex items-center justify-center gap-2 py-2">
     <img 
     src="/LogoLemon.png"
     alt="Lemon Icon"
