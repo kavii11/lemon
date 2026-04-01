@@ -6,6 +6,7 @@ import {
   DragEndEvent,
   DragOverEvent,
 } from "@dnd-kit/core";
+import BlockPicker from "./builder/BlockPicker";
 
 import {
   SortableContext,
@@ -88,7 +89,7 @@ function SortableBlock({ block, sectionId }: any) {
 }
 
 // 🔥 SECTION
-function SortableSection({ section, index, dropInfo }: any) {
+function SortableSection({ section, index, dropInfo, setPicker }: any) {
   const {
     attributes,
     listeners,
@@ -142,8 +143,16 @@ function SortableSection({ section, index, dropInfo }: any) {
         {/* ➕ ADD BLOCK */}
         <div className="flex justify-center mt-4">
           <button
-            onClick={() => addBlock(section.id, "text")}
-            className="text-sm text-gray-500"
+onClick={(e) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+
+  setPicker({
+    sectionId: section.id,
+    index: section.blocks.length,
+    x: rect.left,
+    y: rect.top,
+  });
+}}            className="text-sm text-gray-500"
           >
             + Add Block
           </button>
@@ -164,7 +173,12 @@ function SortableSection({ section, index, dropInfo }: any) {
 // 🔥 CANVAS
 export default function Canvas() {
   const { sections, moveBlock, addBlock } = useBuilder();
-
+  const [picker, setPicker] = useState<{
+  sectionId: string;
+  index: number;
+  x: number;
+  y: number;
+} | null>(null);
   const [dropInfo, setDropInfo] = useState<any>(null);
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -226,14 +240,32 @@ export default function Canvas() {
         <div className="w-full bg-white px-6 py-10 space-y-6">
           {sections.map((section, index) => (
             <SortableSection
-              key={section.id}
-              section={section}
-              index={index}
-              dropInfo={dropInfo}
-            />
+  key={section.id}
+  section={section}
+  index={index}
+  dropInfo={dropInfo}
+  setPicker={setPicker}
+/>
           ))}
         </div>
       </SortableContext>
+      {picker && (
+  <div
+    style={{
+      position: "fixed",
+      top: picker.y,
+      left: picker.x,
+      zIndex: 999,
+    }}
+  >
+    <BlockPicker
+      onSelect={(type: string) => {
+        addBlock(picker.sectionId, type);
+        setPicker(null);
+      }}
+    />
+  </div>
+)}
     </DndContext>
   );
 }
