@@ -4,6 +4,7 @@ import {
   DndContext,
   closestCenter,
   DragEndEvent,
+  DragOverEvent,
 } from "@dnd-kit/core";
 
 import {
@@ -16,8 +17,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { useBuilder } from "@/app/lib/useBuilder";
 import BlockRenderer from "./builder/BlockRenderer";
 import { Plus } from "lucide-react";
+import { useState } from "react";
 
-function SortableSection({ section, index }: any) {
+function SortableSection({ section, index, isOver }: any) {
   const {
     attributes,
     listeners,
@@ -34,9 +36,13 @@ function SortableSection({ section, index }: any) {
   const { addBlock, addSection } = useBuilder();
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} className="relative group">
-
-      {/* ➕ ADD SECTION ABOVE */}
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className="relative group"
+    >
+      {/* ➕ Add Section ABOVE */}
       <button
         onClick={() => addSection("section", index - 1)}
         className="absolute -top-4 left-1/2 -translate-x-1/2 
@@ -45,7 +51,7 @@ function SortableSection({ section, index }: any) {
         <Plus size={16} />
       </button>
 
-      {/* 🔥 DRAG HANDLE */}
+      {/* Drag Handle */}
       <div
         {...listeners}
         className="cursor-move text-xs text-gray-400 mb-2"
@@ -53,16 +59,22 @@ function SortableSection({ section, index }: any) {
         Drag Section
       </div>
 
-      {/* SECTION */}
-      <div className="border-2 border-dashed rounded-xl p-6 bg-gray-50 min-h-[120px]">
-
+      {/* 🔥 SECTION BOX WITH HIGHLIGHT */}
+      <div
+        className={`border-2 rounded-xl p-6 min-h-[120px] transition
+        ${
+          isOver
+            ? "border-blue-500 bg-blue-50"
+            : "border-dashed bg-gray-50"
+        }`}
+      >
         <div className="text-xs text-gray-400 mb-2 uppercase">
           {section.type}
         </div>
 
         {section.blocks.length === 0 && (
           <div className="text-gray-400 text-sm text-center py-6">
-            Empty section
+            Drop here
           </div>
         )}
 
@@ -74,7 +86,7 @@ function SortableSection({ section, index }: any) {
           />
         ))}
 
-        {/* ➕ ADD BLOCK */}
+        {/* ➕ Add Block */}
         <div className="flex justify-center mt-4">
           <button
             onClick={() => addBlock(section.id, "text")}
@@ -86,7 +98,7 @@ function SortableSection({ section, index }: any) {
         </div>
       </div>
 
-      {/* ➕ ADD SECTION BELOW */}
+      {/* ➕ Add Section BELOW */}
       <button
         onClick={() => addSection("section", index)}
         className="absolute -bottom-4 left-1/2 -translate-x-1/2 
@@ -100,26 +112,44 @@ function SortableSection({ section, index }: any) {
 
 export default function Canvas() {
   const { sections, moveSection, addBlock } = useBuilder();
+  const [overSection, setOverSection] = useState<string | null>(null);
 
+  // 🔥 Detect hover section
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (!over) return;
+
+    setOverSection(over.id as string);
+  };
+
+  // 🔥 Handle drop
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
 
-    // 🔥 CASE 1: Sidebar → Canvas (ADD BLOCK)
     const type = active.data.current?.type;
+
+    // ✅ Sidebar → specific section
     if (type) {
-      addBlock(sections[0].id, type); // for now add to first section
+      addBlock(over.id as string, type);
+      setOverSection(null);
       return;
     }
 
-    // 🔥 CASE 2: Reorder Sections
+    // ✅ Section reorder
     if (active.id !== over.id) {
       moveSection(active.id as string, over.id as string);
     }
+
+    setOverSection(null);
   };
 
   return (
-    <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+    <DndContext
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+    >
       <SortableContext
         items={sections.map((s) => s.id)}
         strategy={verticalListSortingStrategy}
@@ -130,6 +160,7 @@ export default function Canvas() {
               key={section.id}
               section={section}
               index={index}
+              isOver={overSection === section.id}
             />
           ))}
         </div>
