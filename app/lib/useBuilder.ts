@@ -54,8 +54,8 @@ type BuilderState = {
   setSelectedBlock: (s: string, b: string) => void;
 
   addSection: (type: string, index?: number) => void;
-  addBlock: (sectionId: string, type: string) => void;
-  moveBlock: (sectionId: string, activeId: string, overId: string) => void;
+addBlock: (sectionId: string, type: string, index?: number) => void;  
+moveBlock: (sectionId: string, activeId: string, overId: string) => void;
 
   updateBlock: (sectionId: string, blockId: string, updates: any) => void;
 
@@ -106,55 +106,103 @@ export const useBuilder = create<BuilderState>((set, get) => ({
       };
     }),
 
-  addBlock: (sectionId, type) =>
-    set((state) => ({
+  addBlock: (sectionId, type, index) =>
+  set((state) => {
+    const updatedSections = state.sections.map((section) => {
+      if (!section || section.id !== sectionId) return section;
+
+      const newBlock = {
+        id: Date.now().toString(),
+        type,
+        props: {
+          content: "Edit me",
+          style: {
+            desktop: {},
+          },
+        },
+      };
+
+      const cleanBlocks = (section.blocks || []).filter(
+        (b: any) => b && b.id
+      );
+
+      const newBlocks =
+        index === undefined
+          ? [...cleanBlocks, newBlock]
+          : [
+              ...cleanBlocks.slice(0, index),
+              newBlock,
+              ...cleanBlocks.slice(index),
+            ];
+
+      return { ...section, blocks: newBlocks };
+    });
+
+    return {
       history: [...state.history, state.sections],
       future: [],
-      sections: state.sections.map((s) =>
-        s.id === sectionId
-          ? {
-              ...s,
-              blocks: [
-                ...s.blocks,
-                {
-                  id: Date.now().toString(),
-                  type,
-                  props: { content: "Edit me", style: {} },
-                },
-              ],
-            }
-          : s
-      ),
-    })),
+      sections: updatedSections,
+    };
+  }),
 
   moveBlock: (sectionId, activeId, overId) =>
-    set((state) => {
-      let moving: any;
+  set((state) => {
+    let moving: any = null;
 
-      const sections = state.sections.map((s) => {
-        const filtered = s.blocks.filter((b) => {
-          if (b.id === activeId) {
-            moving = b;
-            return false;
-          }
-          return true;
-        });
-        return { ...s, blocks: filtered };
+    // 🔥 remove from all sections
+    const cleanedSections = state.sections.map((s) => {
+      const cleanBlocks = (s.blocks || []).filter(
+        (b: any) => b && b.id
+      );
+
+      const remaining = cleanBlocks.filter((b: any) => {
+        if (b.id === activeId) {
+          moving = b;
+          return false;
+        }
+        return true;
       });
 
+      return { ...s, blocks: remaining };
+    });
+
+if (!moving) {
+  return {
+    ...state,
+    sections: state.sections.map((s) => ({
+      ...s,
+      blocks: (s.blocks || []).filter((b: any) => b && b.id),
+    })),
+  };
+}
+    // 🔥 insert into target section at correct position
+    const updated = cleanedSections.map((s) => {
+      if (s.id !== sectionId) return s;
+
+      const blocks = (s.blocks || []).filter(
+        (b: any) => b && b.id
+      );
+
+      const index = blocks.findIndex((b: any) => b.id === overId);
+
+      const insertAt = index === -1 ? blocks.length : index;
+
       return {
-        history: [...state.history, state.sections],
-        future: [],
-        sections: sections.map((s) =>
-          s.id === sectionId
-            ? {
-                ...s,
-                blocks: [...s.blocks, moving],
-              }
-            : s
-        ),
+        ...s,
+        blocks: [
+          ...blocks.slice(0, insertAt),
+          moving,
+          ...blocks.slice(insertAt),
+        ],
       };
-    }),
+    });
+
+    return {
+      history: [...state.history, state.sections],
+      future: [],
+      sections: updated,
+    };
+  }),
 
   updateBlock: (sectionId, blockId, updates) =>
     set((state) => {
@@ -167,8 +215,10 @@ export const useBuilder = create<BuilderState>((set, get) => ({
           s.id === sectionId
             ? {
                 ...s,
-                blocks: s.blocks.map((b) =>
-                  b.id === blockId
+blocks: (s.blocks || [])
+  .filter((b: any) => b && b.id)
+  .map((b: any) =>                  
+    b.id === blockId
                     ? {
                         ...b,
                         props: {

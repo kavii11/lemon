@@ -7,7 +7,7 @@ import {
   DragOverEvent,
 } from "@dnd-kit/core";
 import BlockPicker from "./builder/BlockPicker";
-
+import { useEffect } from "react";
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -22,19 +22,10 @@ import { useState } from "react";
 
 // 🔥 BLOCK
 function SortableBlock({ block, sectionId }: any) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: block.id });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: block.id });
 
-  const {
-    setSelectedBlock,
-    updateBlock,
-    currentDevice,
-  } = useBuilder();
+  const { setSelectedBlock, updateBlock, currentDevice } = useBuilder();
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -45,7 +36,6 @@ function SortableBlock({ block, sectionId }: any) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      
       <div {...listeners} className="text-xs text-gray-400 cursor-move">
         Drag Block
       </div>
@@ -53,7 +43,7 @@ function SortableBlock({ block, sectionId }: any) {
       {/* 🔥 BLOCK UI */}
       <div
         onClick={() => setSelectedBlock(sectionId, block.id)}
-        className="relative border rounded p-3 bg-white hover:border-yellow-400"
+        className="relative border rounded p-3 bg-white hover:border-yellow-400 hover:shadow-md transition"
         style={blockStyle}
       >
         <BlockRenderer block={block} sectionId={sectionId} />
@@ -90,13 +80,8 @@ function SortableBlock({ block, sectionId }: any) {
 
 // 🔥 SECTION
 function SortableSection({ section, index, dropInfo, setPicker }: any) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: section.id });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: section.id });
 
   const { addBlock, addSection } = useBuilder();
 
@@ -107,10 +92,9 @@ function SortableSection({ section, index, dropInfo, setPicker }: any) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} className="relative">
-
       {/* ➕ ABOVE */}
       <button
-        onClick={() => addSection("section", index - 1)}
+        onClick={() => addSection("section", Math.max(0, index - 1))}
         className="absolute -top-4 left-1/2 -translate-x-1/2 bg-white border rounded-full p-2 shadow"
       >
         <Plus size={16} />
@@ -121,38 +105,42 @@ function SortableSection({ section, index, dropInfo, setPicker }: any) {
       </div>
 
       <div className="border-2 border-dashed rounded-xl p-6 bg-gray-50">
-
         {/* DROP LINE */}
         {dropInfo?.sectionId === section.id && (
           <div className="h-1 bg-blue-500 rounded mb-2" />
         )}
 
-        <SortableContext
-          items={(section.blocks || []).map((b: any) => b.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          {(section.blocks || []).map((block: any, i: number) => (
-            <SortableBlock
-              key={block.id}
-              block={block}
-              sectionId={section.id}
-            />
-          ))}
-        </SortableContext>
+       <SortableContext
+  items={(section.blocks || [])
+    .filter((b: any) => b && b.id)
+    .map((b: any) => b.id)}
+  strategy={verticalListSortingStrategy}
+>
+  {(section.blocks || [])
+    .filter((b: any) => b && b.id)
+    .map((block: any) => (
+      <SortableBlock
+        key={block.id}
+        block={block}
+        sectionId={section.id}
+      />
+    ))}
+</SortableContext>
 
         {/* ➕ ADD BLOCK */}
         <div className="flex justify-center mt-4">
           <button
-onClick={(e) => {
-  const rect = e.currentTarget.getBoundingClientRect();
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
 
-  setPicker({
-    sectionId: section.id,
-    index: section.blocks.length,
-    x: rect.left,
-    y: rect.top,
-  });
-}}            className="text-sm text-gray-500"
+              setPicker({
+  sectionId: section.id,
+  index: (section.blocks || []).filter((b: any) => b && b.id).length,
+  x: rect.left + 20,
+  y: rect.top + 30,
+});
+            }}
+            className="text-sm text-gray-500"
           >
             + Add Block
           </button>
@@ -174,20 +162,22 @@ onClick={(e) => {
 export default function Canvas() {
   const { sections, moveBlock, addBlock } = useBuilder();
   const [picker, setPicker] = useState<{
-  sectionId: string;
-  index: number;
-  x: number;
-  y: number;
-} | null>(null);
+    sectionId: string;
+    index: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const [dropInfo, setDropInfo] = useState<any>(null);
 
   const handleDragOver = (event: DragOverEvent) => {
     const { over } = event;
     if (!over) return;
 
-    for (const section of sections) {
-      const index = section.blocks.findIndex((b) => b.id === over.id);
-
+for (const section of sections || []) {
+  if (!section || !section.blocks) continue;
+      const index = (section.blocks || []).findIndex(
+        (b: any) => b && b.id === over.id,
+      );
       if (index !== -1) {
         setDropInfo({ sectionId: section.id, index });
         return;
@@ -196,7 +186,7 @@ export default function Canvas() {
       if (section.id === over.id) {
         setDropInfo({
           sectionId: section.id,
-          index: section.blocks.length,
+          index: (section.blocks || []).filter((b: any) => b && b.id).length,
         });
         return;
       }
@@ -218,14 +208,17 @@ export default function Canvas() {
     }
 
     // ✅ MOVE BLOCK
-    moveBlock(
-      dropInfo.sectionId,
-      active.id as string,
-      over.id as string
-    );
+    moveBlock(dropInfo.sectionId, active.id as string, over.id as string);
 
     setDropInfo(null);
   };
+
+  useEffect(() => {
+    const handleClick = () => setPicker(null);
+    window.addEventListener("click", handleClick);
+
+    return () => window.removeEventListener("click", handleClick);
+  }, []);
 
   return (
     <DndContext
@@ -234,38 +227,40 @@ export default function Canvas() {
       onDragOver={handleDragOver}
     >
       <SortableContext
-        items={sections.map((s) => s.id)}
-        strategy={verticalListSortingStrategy}
+items={sections.filter(Boolean).map((s) => s.id)}        strategy={verticalListSortingStrategy}
       >
         <div className="w-full bg-white px-6 py-10 space-y-6">
-          {sections.map((section, index) => (
-            <SortableSection
-  key={section.id}
-  section={section}
-  index={index}
-  dropInfo={dropInfo}
-  setPicker={setPicker}
-/>
-          ))}
+          {sections
+            .filter(Boolean) // ✅ REMOVE undefined
+            .map((section, index) => (
+              <SortableSection
+                key={section.id}
+                section={section}
+                index={index}
+                dropInfo={dropInfo}
+                setPicker={setPicker}
+              />
+            ))}
         </div>
       </SortableContext>
       {picker && (
-  <div
-    style={{
-      position: "fixed",
-      top: picker.y,
-      left: picker.x,
-      zIndex: 999,
-    }}
-  >
-    <BlockPicker
-      onSelect={(type: string) => {
-        addBlock(picker.sectionId, type);
-        setPicker(null);
-      }}
-    />
-  </div>
-)}
+        <div
+          style={{
+            position: "fixed",
+            top: picker.y,
+            left: picker.x,
+            zIndex: 999,
+          }}
+          onClick={(e) => e.stopPropagation()} // ✅ ADD THIS
+        >
+          <BlockPicker
+            onSelect={(type: string) => {
+              addBlock(picker.sectionId, type, picker.index); // ✅ FIX
+              setPicker(null);
+            }}
+          />
+        </div>
+      )}
     </DndContext>
   );
 }
