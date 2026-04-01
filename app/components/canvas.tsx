@@ -198,8 +198,9 @@ export default function Canvas() {
     const { active, over } = event;
     if (!over || !dropInfo) return;
 
-    const isSidebar = active.data.current?.source === "sidebar";
-    const type = active.data.current?.type;
+    const data = active.data?.current;
+const isSidebar = data?.source === "sidebar";
+const type = data?.type;
 
     // ✅ ADD FROM SIDEBAR
     if (isSidebar && type) {
