@@ -3,8 +3,7 @@
 import { useBuilder } from "@/app/lib/useBuilder";
 
 export default function ExportButton() {
-  const exportData = useBuilder((s) => s.exportData);
-
+const exportData = useBuilder((s) => s.exportData!);
   return (
     <button
       onClick={() => {

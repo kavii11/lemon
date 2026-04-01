@@ -2,13 +2,37 @@
 
 import { create } from "zustand";
 
+type Device = "desktop" | "tablet" | "mobile";
+
+type Style = {
+  padding?: string;
+  margin?: string;
+  fontSize?: string;
+  fontWeight?: string;
+  lineHeight?: string;
+  color?: string;
+  backgroundColor?: string;
+  borderRadius?: string;
+  boxShadow?: string;
+
+  display?: string;
+  justifyContent?: string;
+  alignItems?: string;
+
+  width?: string;
+  height?: string;
+};
+
 type Block = {
   id: string;
   type: string;
   props: {
-    color?: string;
-    padding?: string;
-    [key: string]: any;
+    content?: string;
+    style?: {
+      desktop?: Style;
+      tablet?: Style;
+      mobile?: Style;
+    };
   };
 };
 
@@ -20,31 +44,47 @@ type Section = {
 
 type BuilderState = {
   sections: Section[];
-  selectedBlock: any;
+  history: Section[][];
+  future: Section[][];
 
-  setSelectedBlock: (sectionId: string, blockId: string) => void;
+  currentDevice: Device;
+  selectedBlock: { sectionId: string; blockId: string } | null;
+
+  setDevice: (d: Device) => void;
+  setSelectedBlock: (s: string, b: string) => void;
 
   addSection: (type: string, index?: number) => void;
-  moveSection: (activeId: string, overId: string) => void;
-
-  addBlock: (sectionId: string, type: string, index?: number) => void;
+  addBlock: (sectionId: string, type: string) => void;
   moveBlock: (sectionId: string, activeId: string, overId: string) => void;
 
-  updateBlock: (sectionId: string, blockId: string, props: any) => void;
+  updateBlock: (sectionId: string, blockId: string, updates: any) => void;
 
-  exportData: () => any;
+  undo: () => void;
+  redo: () => void;
+
+  exportData: () => Section[];
 };
 
 export const useBuilder = create<BuilderState>((set, get) => ({
-  sections: [
-    { id: "section-1", type: "header", blocks: [] },
-    { id: "section-2", type: "hero", blocks: [] },
-  ],
+  sections: [{ id: "section-1", type: "hero", blocks: [] }],
 
+  history: [],
+  future: [],
+
+  currentDevice: "desktop",
   selectedBlock: null,
 
-  setSelectedBlock: (sectionId, blockId) =>
-    set({ selectedBlock: { sectionId, blockId } }),
+  setDevice: (d) => set({ currentDevice: d }),
+
+  setSelectedBlock: (s, b) =>
+    set({ selectedBlock: { sectionId: s, blockId: b } }),
+
+  // 🧠 HISTORY HELPER
+  saveHistory: () =>
+    set((state: any) => ({
+      history: [...state.history, state.sections],
+      future: [],
+    })),
 
   addSection: (type, index) =>
     set((state) => {
@@ -56,118 +96,125 @@ export const useBuilder = create<BuilderState>((set, get) => ({
 
       const sections = [...state.sections];
 
-      if (index !== undefined && index >= 0) {
-        sections.splice(index + 1, 0, newSection);
-      } else {
-        sections.push(newSection);
-      }
+      if (index !== undefined) sections.splice(index + 1, 0, newSection);
+      else sections.push(newSection);
 
-      return { sections };
+      return {
+        history: [...state.history, state.sections],
+        sections,
+        future: [],
+      };
     }),
 
-  moveSection: (activeId, overId) =>
-    set((state) => {
-      const oldIndex = state.sections.findIndex((s) => s.id === activeId);
-      const newIndex = state.sections.findIndex((s) => s.id === overId);
-
-      if (oldIndex === -1 || newIndex === -1) return state;
-
-      const updated = [...state.sections];
-      const [moved] = updated.splice(oldIndex, 1);
-      updated.splice(newIndex, 0, moved);
-
-      return { sections: updated };
-    }),
-
-  addBlock: (sectionId, type, index) =>
+  addBlock: (sectionId, type) =>
     set((state) => ({
-      sections: state.sections.map((section) => {
-        if (section.id !== sectionId) return section;
-
-        // 🔥 TEMPLATE SUPPORT
-        if (type === "hero") {
-          return {
-            ...section,
-            blocks: [
-              {
-                id: Date.now().toString(),
-                type: "heading",
-                props: { content: "Hero Title" },
-              },
-              {
-                id: Date.now().toString() + "2",
-                type: "text",
-                props: { content: "Hero description" },
-              },
-            ],
-          };
-        }
-
-        const newBlock = {
-          id: Date.now().toString(),
-          type,
-          props: {},
-        };
-
-        const blocks = [...section.blocks];
-
-        if (index === undefined) blocks.push(newBlock);
-        else blocks.splice(index, 0, newBlock);
-
-        return { ...section, blocks };
-      }),
+      history: [...state.history, state.sections],
+      future: [],
+      sections: state.sections.map((s) =>
+        s.id === sectionId
+          ? {
+              ...s,
+              blocks: [
+                ...s.blocks,
+                {
+                  id: Date.now().toString(),
+                  type,
+                  props: { content: "Edit me", style: {} },
+                },
+              ],
+            }
+          : s
+      ),
     })),
 
   moveBlock: (sectionId, activeId, overId) =>
     set((state) => {
-      let movingBlock: any = null;
+      let moving: any;
 
-      const sections = state.sections.map((section) => {
-        const filtered = section.blocks.filter((b) => {
+      const sections = state.sections.map((s) => {
+        const filtered = s.blocks.filter((b) => {
           if (b.id === activeId) {
-            movingBlock = b;
+            moving = b;
             return false;
           }
           return true;
         });
-
-        return { ...section, blocks: filtered };
+        return { ...s, blocks: filtered };
       });
 
-      if (!movingBlock) return state;
-
       return {
-        sections: sections.map((section) => {
-          if (section.id !== sectionId) return section;
-
-          const blocks = [...section.blocks];
-          const index = blocks.findIndex((b) => b.id === overId);
-
-          if (index === -1) blocks.push(movingBlock);
-          else blocks.splice(index, 0, movingBlock);
-
-          return { ...section, blocks };
-        }),
+        history: [...state.history, state.sections],
+        future: [],
+        sections: sections.map((s) =>
+          s.id === sectionId
+            ? {
+                ...s,
+                blocks: [...s.blocks, moving],
+              }
+            : s
+        ),
       };
     }),
 
-  updateBlock: (sectionId, blockId, props) =>
-    set((state) => ({
-      sections: state.sections.map((section) =>
-        section.id === sectionId
-          ? {
-              ...section,
-              blocks: section.blocks.map((b) =>
-                b.id === blockId
-                  ? { ...b, props: { ...b.props, ...props } }
-                  : b
-              ),
-            }
-          : section
-      ),
-    })),
+  updateBlock: (sectionId, blockId, updates) =>
+    set((state) => {
+      const device = state.currentDevice;
 
-  exportData: () => {
-    return get().sections;
-  },
+      return {
+        history: [...state.history, state.sections],
+        future: [],
+        sections: state.sections.map((s) =>
+          s.id === sectionId
+            ? {
+                ...s,
+                blocks: s.blocks.map((b) =>
+                  b.id === blockId
+                    ? {
+                        ...b,
+                        props: {
+                          ...b.props,
+                          style: {
+                            ...b.props.style,
+                            [device]: {
+                              ...b.props.style?.[device],
+                              ...updates,
+                            },
+                          },
+                        },
+                      }
+                    : b
+                ),
+              }
+            : s
+        ),
+      };
+    }),
+
+  undo: () =>
+    set((state) => {
+      if (state.history.length === 0) return state;
+
+      const prev = state.history[state.history.length - 1];
+
+      return {
+        sections: prev,
+        history: state.history.slice(0, -1),
+        future: [state.sections, ...state.future],
+      };
+    }),
+
+  redo: () =>
+    set((state) => {
+      if (state.future.length === 0) return state;
+
+      const next = state.future[0];
+
+      return {
+        sections: next,
+        history: [...state.history, state.sections],
+        future: state.future.slice(1),
+      };
+    }),
+
+  exportData: () => get().sections,
 }));
