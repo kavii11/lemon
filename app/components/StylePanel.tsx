@@ -11,7 +11,9 @@ export default function StylePanel() {
     (s) => s.id === selectedBlock.sectionId
   );
 
-  const block = section?.blocks.find(
+  if (!section) return null; // ✅ FIX 1 (important)
+
+  const block = section.blocks.find(
     (b) => b.id === selectedBlock.blockId
   );
 
@@ -24,6 +26,7 @@ export default function StylePanel() {
       {/* COLOR */}
       <input
         type="color"
+        value={block.props.color || "#000000"} // ✅ controlled input (better)
         onChange={(e) =>
           updateBlock(section.id, block.id, {
             color: e.target.value,
@@ -35,6 +38,7 @@ export default function StylePanel() {
       <input
         type="number"
         placeholder="Padding"
+        value={parseInt(block.props.padding || "0")} // ✅ prevent uncontrolled warning
         onChange={(e) =>
           updateBlock(section.id, block.id, {
             padding: e.target.value + "px",

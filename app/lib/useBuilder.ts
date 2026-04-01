@@ -5,7 +5,11 @@ import { create } from "zustand";
 type Block = {
   id: string;
   type: string;
-  props: any;
+  props: {
+    color?: string;
+    padding?: string;
+    [key: string]: any;
+  };
 };
 
 type Section = {
