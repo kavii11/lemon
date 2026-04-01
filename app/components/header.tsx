@@ -14,7 +14,7 @@ export default function Header() {
   const menuClass = `${inter.className} text-[14px] font-medium text-zinc-600 hover:text-yellow-500 transition`;
 
   return (
-    <nav className="fixed top-2 bg-##fefefc border-b border-black left-0 w-full z-50 flex justify-center h-14">
+    <nav className="fixed top-2 bg-[#fefefc] border-b border-black left-0 w-full z-50 flex justify-center h-14">
 
       {/* FLOATING CONTAINER */}
       <div className="w-[95%] max-w-7xl h-12 px-6 flex items-center justify-between
