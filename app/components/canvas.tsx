@@ -110,22 +110,22 @@ function SortableSection({ section, index, dropInfo, setPicker }: any) {
           <div className="h-1 bg-blue-500 rounded mb-2" />
         )}
 
-       <SortableContext
-  items={(section.blocks || [])
-    .filter((b: any) => b && b.id)
-    .map((b: any) => b.id)}
-  strategy={verticalListSortingStrategy}
->
-  {(section.blocks || [])
-    .filter((b: any) => b && b.id)
-    .map((block: any) => (
-      <SortableBlock
-        key={block.id}
-        block={block}
-        sectionId={section.id}
-      />
-    ))}
-</SortableContext>
+        <SortableContext
+          items={(section.blocks || [])
+            .filter((b: any) => b && b.id)
+            .map((b: any) => b.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {(section.blocks || [])
+            .filter((b: any) => b && b.id)
+            .map((block: any) => (
+              <SortableBlock
+                key={block.id}
+                block={block}
+                sectionId={section.id}
+              />
+            ))}
+        </SortableContext>
 
         {/* ➕ ADD BLOCK */}
         <div className="flex justify-center mt-4">
@@ -134,11 +134,12 @@ function SortableSection({ section, index, dropInfo, setPicker }: any) {
               const rect = e.currentTarget.getBoundingClientRect();
 
               setPicker({
-  sectionId: section.id,
-  index: (section.blocks || []).filter((b: any) => b && b.id).length,
-  x: rect.left + 20,
-  y: rect.top + 30,
-});
+                sectionId: section.id,
+                index: (section.blocks || []).filter((b: any) => b && b.id)
+                  .length,
+                x: rect.left + 20,
+                y: rect.top + 30,
+              });
             }}
             className="text-sm text-gray-500"
           >
@@ -173,8 +174,8 @@ export default function Canvas() {
     const { over } = event;
     if (!over) return;
 
-for (const section of sections || []) {
-  if (!section || !section.blocks) continue;
+    for (const section of sections || []) {
+      if (!section || !section.blocks) continue;
       const index = (section.blocks || []).findIndex(
         (b: any) => b && b.id === over.id,
       );
@@ -197,7 +198,7 @@ for (const section of sections || []) {
     const { active, over } = event;
     if (!over || !dropInfo) return;
 
-    const isSidebar = active.data.current?.from === "sidebar";
+    const isSidebar = active.data.current?.source === "sidebar";
     const type = active.data.current?.type;
 
     // ✅ ADD FROM SIDEBAR
@@ -227,7 +228,8 @@ for (const section of sections || []) {
       onDragOver={handleDragOver}
     >
       <SortableContext
-items={sections.filter(Boolean).map((s) => s.id)}        strategy={verticalListSortingStrategy}
+        items={sections.filter(Boolean).map((s) => s.id)}
+        strategy={verticalListSortingStrategy}
       >
         <div className="w-full bg-white px-6 py-10 space-y-6">
           {sections
