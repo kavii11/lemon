@@ -44,11 +44,9 @@ export default function RootLayout({
         <Sidebar />
 
         {/* Canvas Area */}
-        <main className="pt-16 ml-[20%] w-[80%] h-[calc(100vh-4rem)]">
-          <Canvas>
-            {children}
-          </Canvas>
-        </main>
+       <main className="pt-20 ml-[20%] w-[80%] h-[calc(100vh-5rem)]">
+  {children}
+</main>
 
       </body>
     </html>

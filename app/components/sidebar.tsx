@@ -1,6 +1,9 @@
 "use client";
 
+"use client";
+
 import { useDraggable } from "@dnd-kit/core";
+import { Inter } from "next/font/google"; // ✅ ADD THIS
 import {
   Layout,
   Type,
@@ -12,6 +15,11 @@ import {
   FormInput,
   Video,
 } from "lucide-react";
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["600"],
+});
 
 const sections = [
   {
@@ -94,51 +102,65 @@ export default function Sidebar() {
   return (
     <aside className="fixed top-16 left-0 h-[calc(100vh-4rem)] w-[20%] bg-white border-r flex flex-col">
 
-      {/* 🔝 Brand (UNCHANGED) */}
-      <div className="flex items-center justify-center gap-2 py-3 border-b border-yellow-100">
-        <div className="w-5 h-5 bg-yellow-400 rounded-full"></div>
-        <span className="font-semibold text-gray-800">
-          lemon<span className="text-yellow-500">oid</span>
-        </span>
+  {/* 🔝 Brand */}
+  <div className="flex items-center justify-center gap-2 py-3">
+    <img 
+    src="/LogoLemon.png"
+    alt="Lemon Icon"
+    className="h-8 w-auto object-contain"
+    draggable="false"
+  />
+  <p className={`${inter.className} text-[16px] font-semibold text-zinc-800 tracking-wide`}>
+  Dashboard
+</p>
+
+  </div>
+
+  {/* ✅ Divider below brand */}
+ 
+    <div className="border-t"></div>
+ 
+
+  {/* 🔥 Scrollable Builder Panel */}
+  <div className="flex-1 overflow-y-auto p-4 space-y-6">
+
+    {sections.map((section, i) => (
+      <div key={i}>
+        
+        <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">
+          {section.title}
+        </h3>
+
+        <div className="grid grid-cols-3 gap-3">
+          {section.items.map((item, idx) => (
+            <DragItem
+              key={idx}
+              type={item.name}
+              Icon={item.icon}
+              label={item.name}
+            />
+          ))}
+        </div>
+
       </div>
+    ))}
 
-      {/* 🔥 Scrollable Builder Panel */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+  </div>
 
-        {sections.map((section, i) => (
-          <div key={i}>
-            
-            <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">
-              {section.title}
-            </h3>
+  {/* ✅ Divider above bottom links */}
+      <div className="border-t"></div>
 
-            {/* 3 Column Grid */}
-            <div className="grid grid-cols-3 gap-3">
-              {section.items.map((item, idx) => (
-                <DragItem
-                  key={idx}
-                  type={item.name}
-                  Icon={item.icon}
-                  label={item.name}
-                />
-              ))}
-            </div>
 
-          </div>
-        ))}
+  {/* 🔻 Bottom Links */}
+  <div className="p-4 space-y-2 text-right">
+    <p className="text-sm text-gray-600 hover:text-blue-600 cursor-pointer transition underline-offset-4 hover:underline">
+      Guide
+    </p>
+    <p className="text-sm text-gray-600 hover:text-blue-600 cursor-pointer transition underline-offset-4 hover:underline">
+      How to use?
+    </p>
+  </div>
 
-      </div>
-
-      {/* 🔻 Bottom Links (UNCHANGED) */}
-      <div className="p-4 space-y-2 text-right">
-        <p className="text-sm text-gray-600 hover:text-blue-600 cursor-pointer transition underline-offset-4 hover:underline">
-          Guide
-        </p>
-        <p className="text-sm text-gray-600 hover:text-blue-600 cursor-pointer transition underline-offset-4 hover:underline">
-          How to use?
-        </p>
-      </div>
-
-    </aside>
+</aside>
   );
 }
