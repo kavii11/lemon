@@ -2,11 +2,26 @@
 
 import { create } from "zustand";
 
-export const useBuilder = create((set) => ({
+// ✅ Block type
+type Block = {
+  id: string;
+  type: string;
+  props: Record<string, any>;
+};
+
+// ✅ Store type
+type BuilderState = {
+  blocks: Block[];
+  addBlock: (type: string) => void;
+  updateBlock: (id: string, props: Record<string, any>) => void;
+};
+
+// ✅ Typed Zustand store
+export const useBuilder = create<BuilderState>((set) => ({
   blocks: [],
 
-  addBlock: (type: string) =>
-    set((state: any) => ({
+  addBlock: (type) =>
+    set((state) => ({
       blocks: [
         ...state.blocks,
         {
@@ -17,10 +32,12 @@ export const useBuilder = create((set) => ({
       ],
     })),
 
-  updateBlock: (id: string, props: any) =>
-    set((state: any) => ({
-      blocks: state.blocks.map((b: any) =>
-        b.id === id ? { ...b, props: { ...b.props, ...props } } : b
+  updateBlock: (id, props) =>
+    set((state) => ({
+      blocks: state.blocks.map((b) =>
+        b.id === id
+          ? { ...b, props: { ...b.props, ...props } }
+          : b
       ),
     })),
 }));
