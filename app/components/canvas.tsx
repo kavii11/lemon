@@ -216,7 +216,10 @@ const type = data?.type;
   };
 
   useEffect(() => {
-    const handleClick = () => setPicker(null);
+    const handleClick = (e: any) => {
+  if (e.target.closest(".block-picker")) return;
+  setPicker(null);
+};
     window.addEventListener("click", handleClick);
 
     return () => window.removeEventListener("click", handleClick);
