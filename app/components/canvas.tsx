@@ -251,7 +251,8 @@ const type = data?.type;
       </SortableContext>
       {picker && (
         <div
-          style={{
+  className="block-picker"
+  style={{
             position: "fixed",
             top: picker.y,
             left: picker.x,
