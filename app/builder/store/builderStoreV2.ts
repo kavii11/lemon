@@ -1,84 +1,59 @@
-"use client";
 import { create } from "zustand";
-import { nanoid } from "nanoid";
-import { Block, Section, BlockType } from "../core/blockTypes";
+
+export type BlockType = "text" | "image";
+
+export type Block = {
+  id: string;
+  type: BlockType;
+  content?: string;
+};
+
+export type Section = {
+  id: string;
+  blocks: Block[];
+};
 
 type BuilderState = {
   sections: Section[];
-  selected: { sectionId: string; blockId: string } | null;
-
-  addSection: () => void;
-  addBlock: (sectionId: string, type: BlockType) => void;
-
-  selectBlock: (sectionId: string, blockId: string) => void;
-
-  updateStyle: (
-    sectionId: string,
-    blockId: string,
-    style: Partial<Block["style"]>
-  ) => void;
-
-  deleteBlock: (sectionId: string, blockId: string) => void;
+  addBlock: (sectionId: string, type: BlockType, index?: number) => void;
+  moveBlock: (sectionId: string, from: number, to: number) => void;
 };
 
-export const useBuilderV2 = create<BuilderState>((set) => ({
-  sections: [
-    {
-      id: nanoid(),
-      blocks: [],
-    },
-  ],
-  selected: null,
+const uid = () => Math.random().toString(36).slice(2);
 
-  addSection: () =>
-    set((state) => ({
-      sections: [...state.sections, { id: nanoid(), blocks: [] }],
-    })),
+export const useBuilderStore = create<BuilderState>((set) => ({
+  sections: [{ id: "section-1", blocks: [] }],
 
-  addBlock: (sectionId, type) =>
-    set((state) => ({
-      sections: state.sections.map((s) =>
-        s.id === sectionId
-          ? {
-              ...s,
-              blocks: [
-                ...s.blocks,
-                {
-                  id: nanoid(),
-                  type,
-                  props: {},
-                  style: { padding: 10, fontSize: 16, align: "left" },
-                },
-              ],
-            }
-          : s
-      ),
-    })),
-
-  selectBlock: (sectionId, blockId) =>
-    set({ selected: { sectionId, blockId } }),
-
-  updateStyle: (sectionId, blockId, style) =>
+  addBlock: (sectionId, type, index) =>
     set((state) => ({
       sections: state.sections.map((s) => {
         if (s.id !== sectionId) return s;
-        return {
-          ...s,
-          blocks: s.blocks.map((b) =>
-            b.id === blockId
-              ? { ...b, style: { ...b.style, ...style } }
-              : b
-          ),
+
+        const newBlock: Block = {
+          id: uid(),
+          type,
+          content: type === "text" ? "New Text" : "",
         };
+
+        const updated = [...s.blocks];
+
+        if (index === undefined) updated.push(newBlock);
+        else updated.splice(index, 0, newBlock);
+
+        return { ...s, blocks: updated };
       }),
     })),
 
-  deleteBlock: (sectionId, blockId) =>
+  moveBlock: (sectionId, from, to) =>
     set((state) => ({
-      sections: state.sections.map((s) =>
-        s.id === sectionId
-          ? { ...s, blocks: s.blocks.filter((b) => b.id !== blockId) }
-          : s
-      ),
+      sections: state.sections.map((s) => {
+        if (s.id !== sectionId) return s;
+
+        const arr = [...s.blocks];
+        const [item] = arr.splice(from, 1);
+        arr.splice(to, 0, item);
+
+        return { ...s, blocks: arr };
+      }),
     })),
 }));
