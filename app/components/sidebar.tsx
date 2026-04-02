@@ -91,7 +91,7 @@ const sections = [
 // 🔥 DRAG ITEM
 function DragItem({ type, Icon, label }: any) {
   const { attributes, listeners, setNodeRef } = useDraggable({
-    id: `sidebar-${type}`
+    id: `sidebar-${type}`,
     data: {
       type,
       source: "sidebar",

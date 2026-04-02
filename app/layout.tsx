@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 
-import Header from "./components/header";
-import Sidebar from "./components/sidebar";
+import Header from "./components/header"; // ✅ updated
+import Sidebar from "./components/sidebar"; // ✅ updated
 import Canvas from "./components/canvas"; // ✅ added
 
 const inter = Inter({
