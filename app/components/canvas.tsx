@@ -6,7 +6,6 @@ import {
   DragEndEvent,
   DragOverEvent,
 } from "@dnd-kit/core";
-import BlockPicker from "./builder/BlockPicker";
 import { useEffect } from "react";
 import {
   SortableContext,
@@ -15,8 +14,9 @@ import {
 } from "@dnd-kit/sortable";
 
 import { CSS } from "@dnd-kit/utilities";
-import { useBuilder } from "@/app/lib/useBuilder";
+import { useBuilderStore } from "../builder/store/builderStoreV2";
 import BlockRenderer from "./builder/BlockRenderer";
+import BlockPicker from "./builder/BlockPicker";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
