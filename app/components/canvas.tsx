@@ -12,7 +12,7 @@ import {
   verticalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
-
+import { useBuilder } from "@/app/lib/useBuilder";
 import { CSS } from "@dnd-kit/utilities";
 import { useBuilderStore } from "../builder/store/builderStoreV2";
 import BlockRenderer from "./builder/BlockRenderer";
