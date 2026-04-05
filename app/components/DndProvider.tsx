@@ -15,18 +15,12 @@ type DropInfo = {
   index: number;
 } | null;
 
-export default function DndProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DndProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [dropInfo, setDropInfo] = useState<DropInfo>(null);
   const { sections, addBlock, moveBlock } = useBuilder();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => setMounted(true), []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -40,7 +34,6 @@ export default function DndProvider({
 
   const handleDragOver = (event: any) => {
     const { over } = event;
-
     if (!over) {
       setDropInfo(null);
       return;
@@ -54,7 +47,7 @@ export default function DndProvider({
 
       setDropInfo({
         sectionId,
-        index: section?.blocks?.filter((b: any) => !b?.isSpacer).length ?? 0,
+        index: section?.blocks?.length ?? 0,
       });
       return;
     }
@@ -88,7 +81,6 @@ export default function DndProvider({
     const isSidebar = data?.source === "sidebar";
     const type = data?.type;
     const activeId = String(active.id);
-    const overId = String(over.id);
 
     if (isSidebar && type) {
       addBlock(dropInfo.sectionId, type, dropInfo.index);
@@ -96,7 +88,7 @@ export default function DndProvider({
       return;
     }
 
-    moveBlock(dropInfo.sectionId, activeId, overId);
+    moveBlock(dropInfo.sectionId, activeId, over.id);
     setDropInfo(null);
   };
 

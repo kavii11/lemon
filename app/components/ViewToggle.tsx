@@ -1,14 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { Monitor, Tablet, Smartphone } from "lucide-react";
+import { useBuilder } from "@/app/lib/useBuilder";
 
 export default function ViewToggle() {
-  const [mode, setMode] = useState("desktop");
+  const currentDevice = useBuilder((s) => s.currentDevice);
+  const setDevice = useBuilder((s) => s.setDevice);
+
+  const items = [
+    { value: "desktop", label: "Desktop", icon: Monitor },
+    { value: "tablet", label: "Tablet", icon: Tablet },
+    { value: "mobile", label: "Mobile", icon: Smartphone },
+  ] as const;
 
   return (
-    <div className="fixed top-20 right-4 z-50 bg-white border p-2 rounded shadow">
-      <button onClick={() => setMode("desktop")}>Desktop</button>
-      <button onClick={() => setMode("mobile")}>Mobile</button>
+    <div className="view-toggle">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <button
+            key={item.value}
+            type="button"
+            className={currentDevice === item.value ? "active" : ""}
+            onClick={() => setDevice(item.value)}
+          >
+            <Icon size={16} />
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
