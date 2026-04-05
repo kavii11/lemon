@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
-
+import DndProvider from "./components/DndProvider";
 import Header from "./components/header"; // ✅ updated
 import Sidebar from "./components/sidebar"; // ✅ updated
-import Canvas from "./components/canvas"; // ✅ added
 
 const inter = Inter({
   subsets: ["latin"],
@@ -32,6 +31,15 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+
+  const handleDragEnd = (event: any) => {
+  const { active, over } = event;
+
+  if (!over) return;
+
+  console.log("Dragged:", active.id);
+  console.log("Dropped on:", over.id);
+};
   return (
     <html
       lang="en"
@@ -40,13 +48,14 @@ export default function RootLayout({
       <body className="min-h-screen bg-[#ffffff] font-[var(--font-inter)]">
 
         {/* Header + Sidebar */}
-        <Header />
-        <Sidebar />
+        <DndProvider>
+  <Header />
+  <Sidebar />
 
-        {/* Canvas Area */}
-       <main className="pt-20 ml-[20%] w-[80%] h-[calc(100vh-5rem)]">
-  {children}
-</main>
+  <main className="pt-20 ml-[20%] w-[80%] h-[calc(100vh-5rem)]">
+    {children}
+  </main>
+</DndProvider>
 
       </body>
     </html>
