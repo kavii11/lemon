@@ -15,12 +15,19 @@ type DropInfo = {
   index: number;
 } | null;
 
-export default function DndProvider({ children }: { children: React.ReactNode }) {
+export default function DndProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [mounted, setMounted] = useState(false);
   const [dropInfo, setDropInfo] = useState<DropInfo>(null);
+
   const { sections, addBlock, moveBlock } = useBuilder();
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -34,6 +41,7 @@ export default function DndProvider({ children }: { children: React.ReactNode })
 
   const handleDragOver = (event: any) => {
     const { over } = event;
+
     if (!over) {
       setDropInfo(null);
       return;
@@ -41,6 +49,7 @@ export default function DndProvider({ children }: { children: React.ReactNode })
 
     const overId = String(over.id);
 
+    // ✅ Drop on empty section
     if (overId.startsWith("section-drop-")) {
       const sectionId = overId.replace("section-drop-", "");
       const section = sections.find((s: any) => s.id === sectionId);
@@ -52,15 +61,16 @@ export default function DndProvider({ children }: { children: React.ReactNode })
       return;
     }
 
+    // ✅ Drop between blocks
     for (const section of sections || []) {
-      const index = (section.blocks || []).findIndex(
-        (b: any) => b?.id === overId
+      const blockIndex = (section.blocks || []).findIndex(
+        (block: any) => String(block.id) === overId
       );
 
-      if (index !== -1) {
+      if (blockIndex !== -1) {
         setDropInfo({
           sectionId: section.id,
-          index,
+          index: blockIndex,
         });
         return;
       }
@@ -77,18 +87,26 @@ export default function DndProvider({ children }: { children: React.ReactNode })
       return;
     }
 
-    const data = active.data?.current;
-    const isSidebar = data?.source === "sidebar";
-    const type = data?.type;
+    const activeData = active.data?.current || {};
+    const source = activeData.source;
+    const type = activeData.type;
     const activeId = String(active.id);
+    const overId = String(over.id);
 
-    if (isSidebar && type) {
+    // ✅ HANDLE SIDEBAR (website + product)
+    if ((source === "sidebar" || source === "product-sidebar") && type) {
       addBlock(dropInfo.sectionId, type, dropInfo.index);
       setDropInfo(null);
       return;
     }
 
-    moveBlock(dropInfo.sectionId, activeId, over.id);
+    // ✅ HANDLE CANVAS DRAG (reorder)
+    if (source === "canvas") {
+      moveBlock(dropInfo.sectionId, activeId, overId);
+      setDropInfo(null);
+      return;
+    }
+
     setDropInfo(null);
   };
 

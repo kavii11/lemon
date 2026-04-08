@@ -379,3 +379,37 @@ body {
     flex: 1 1 auto;
   }
 }
+
+.dashboard-sidebar {
+  position: fixed;
+  top: 56px;        /* same as canvas */
+  left: 0;
+  width: 20%;
+  bottom: 0;
+  border-right: 1px solid #27272a;
+  background: black;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.dashboard-content {
+  position: fixed;
+  top: 56px;        /* same as canvas */
+  left: 20%;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  background: black;
+}
+/* ✅ NEW CLASS (DO NOT TOUCH OLD ONES) */
+.dashboard-builder-sidebar {
+  position: fixed;
+  top: 56px;      /* same as canvas */
+  left: 0;
+  width: 20%;
+  bottom: 0;
+  z-index: 40;
+}

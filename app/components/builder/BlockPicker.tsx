@@ -1,48 +1,88 @@
 "use client";
 
-import { Layout, PanelTop, SquareStack, PanelsTopLeft, Rows3, X } from "lucide-react";
+import { X } from "lucide-react";
 
-const SECTION_TYPES = [
-  { label: "Section", value: "section", icon: Layout },
-  { label: "Hero", value: "hero", icon: PanelsTopLeft },
-  { label: "Navbar", value: "navbar", icon: PanelTop },
-  { label: "Features", value: "features", icon: Rows3 },
-  { label: "Footer", value: "footer", icon: SquareStack },
+const groups = [
+  {
+    title: "Sections",
+    items: ["hero", "navbar", "features", "pricing", "testimonials", "cta", "footer"],
+  },
+  {
+    title: "Layout",
+    items: ["section", "container", "grid", "2-columns", "3-columns", "stack"],
+  },
+  {
+    title: "Content",
+    items: ["heading", "text", "paragraph", "image", "video", "list"],
+  },
+  {
+    title: "Commerce",
+    items: ["product", "product-list", "cart", "checkout"],
+  },
+  {
+    title: "Blog",
+    items: ["blog-list", "blog-post", "image-block"],
+  },
 ];
 
+function pretty(value: string) {
+  return value.replace(/-/g, " ");
+}
+
 export default function BlockPicker({
-  mode = "section",
+  sectionId,
   onPick,
   onClose,
 }: {
-  mode?: "section";
-  onPick: (value: string) => void;
+  sectionId: string;
+  onPick: (sectionId: string, type: string) => void;
   onClose: () => void;
-}) {
+}){
   return (
     <div className="block-picker">
       <div className="block-picker-header">
-        <h3>Add {mode}</h3>
-        <button type="button" className="block-picker-close" onClick={onClose}>
+        <h3>Add section</h3>
+        <button
+          type="button"
+          className="block-picker-close"
+          onClick={onClose}
+          aria-label="Close block picker"
+        >
           <X size={16} />
         </button>
       </div>
 
-      <div className="block-picker-grid">
-        {SECTION_TYPES.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.value}
-              type="button"
-              className="block-picker-card"
-              onClick={() => onPick(item.value)}
+      <div style={{ display: "grid", gap: 14 }}>
+        {groups.map((group) => (
+          <div key={group.title}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "#64748b",
+                marginBottom: 10,
+              }}
             >
-              <Icon size={18} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
+              {group.title}
+            </div>
+            <div className="block-picker-grid">
+              {group.items.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className="block-picker-card"
+onClick={() => onPick(sectionId, item)}                >
+                  <strong style={{ textTransform: "capitalize" }}>{pretty(item)}</strong>
+                  <span style={{ fontSize: 13, color: "#64748b", textAlign: "left" }}>
+                    Add a {pretty(item)} block to the page.
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -119,8 +119,7 @@ function DragItem({ type, Icon, label }: any) {
 // 🔥 MAIN SIDEBAR
 export default function Sidebar() {
   return (
-    <aside className="fixed top-16 left-0 h-[calc(100vh-4rem)] w-[20%] bg-white border-r flex flex-col">
-
+<aside className="h-full w-full bg-white border-r flex flex-col">
       {/* 🔝 BRAND (RESTORED ✅) */}
       <div className="flex items-center justify-center gap-2 py-3">
         <img
@@ -134,7 +133,7 @@ export default function Sidebar() {
         </p>
       </div>
 
-      <div className="border-t" />
+     <div className="w-full border-t border-black"></div>
 
       {/* 🔥 COMPONENT LIBRARY */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -159,6 +158,7 @@ export default function Sidebar() {
         ))}
 
       </div>
+      <div className="w-full border-t border-black"></div>
 
       {/* 🔻 FOOTER (RESTORED ✅) */}
       <div className="border-t p-4 space-y-2 text-right">

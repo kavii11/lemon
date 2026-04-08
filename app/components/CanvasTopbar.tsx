@@ -13,7 +13,7 @@ import {
 import { useBuilder } from "@/app/lib/useBuilder";
 
 type Props = {
-  onAddSection: () => void;
+  onAddSection?: () => void;
 };
 
 export default function CanvasTopbar({ onAddSection }: Props) {
@@ -117,7 +117,7 @@ export default function CanvasTopbar({ onAddSection }: Props) {
         <button
           type="button"
           className="canvas-topbar-btn primary"
-          onClick={onAddSection}
+          onClick={() => onAddSection?.()}
         >
           <Plus size={16} />
           <span>Add section</span>

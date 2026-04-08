@@ -41,23 +41,15 @@ export default function RootLayout({
   console.log("Dropped on:", over.id);
 };
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} h-full antialiased`}
-    >
-      <body className="min-h-screen bg-[#ffffff] font-[var(--font-inter)]">
-
-        {/* Header + Sidebar */}
-        <DndProvider>
-  <Header />
-  <Sidebar />
-
-  <main className="pt-20 ml-[20%] w-[80%] h-[calc(100vh-5rem)]">
-    {children}
-  </main>
-</DndProvider>
-
-      </body>
-    </html>
-  );
+  <html
+    lang="en"
+    className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} h-full antialiased`}
+  >
+    <body className="min-h-screen bg-[#ffffff] font-[var(--font-inter)]">
+      <DndProvider>
+        {children}
+      </DndProvider>
+    </body>
+  </html>
+);
 }

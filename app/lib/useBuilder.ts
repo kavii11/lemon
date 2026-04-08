@@ -22,27 +22,92 @@ export type Style = {
   minHeight?: string;
   textAlign?: "left" | "center" | "right";
   objectFit?: "cover" | "contain";
+  gap?: string;
+  border?: string;
+};
+
+export type LinkItem = {
+  label: string;
+  href?: string;
+};
+
+export type ButtonItem = {
+  label: string;
+  href?: string;
+  variant?: "primary" | "secondary" | "ghost";
+};
+
+export type StatItem = {
+  label: string;
+  value: string;
+};
+
+export type PriceFeature = {
+  text: string;
+};
+
+export type FAQItem = {
+  question: string;
+  answer: string;
+};
+
+export type TestimonialItem = {
+  quote: string;
+  name: string;
+  role?: string;
+};
+
+export type BlockProps = {
+  content?: string;
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  src?: string;
+  alt?: string;
+  href?: string;
+  poster?: string;
+  price?: string;
+  badge?: string;
+  items?: string[];
+  links?: LinkItem[];
+  buttons?: ButtonItem[];
+  stats?: StatItem[];
+  features?: PriceFeature[];
+  faqs?: FAQItem[];
+  testimonials?: TestimonialItem[];
+  options?: string[];
+  label?: string;
+  placeholder?: string;
+  checked?: boolean;
+  columns?: {
+    title?: string;
+    content?: string;
+    items?: string[];
+  }[];
+  products?: {
+    title: string;
+    price: string;
+    image?: string;
+  }[];
+  posts?: {
+    title: string;
+    excerpt: string;
+  }[];
+  images?: string[];
+  compareAt?: string;
+  style?: {
+    desktop?: Style;
+    tablet?: Style;
+    mobile?: Style;
+  };
+  [key: string]: any;
 };
 
 export type Block = {
   id: string;
   type: string;
   isSpacer?: boolean;
-  props: {
-    content?: string;
-    src?: string;
-    alt?: string;
-    href?: string;
-    items?: string[];
-    placeholder?: string;
-    options?: string[];
-    label?: string;
-    style?: {
-      desktop?: Style;
-      tablet?: Style;
-      mobile?: Style;
-    };
-  };
+  props: BlockProps;
 };
 
 export type Section = {
@@ -51,675 +116,1172 @@ export type Section = {
   blocks: Block[];
 };
 
+type BuilderMode = "website" | "product";
+
+type SelectedBlock = {
+  sectionId: string;
+  blockId: string;
+} | null;
+
 type BuilderState = {
+  builderType: BuilderMode;
+  setBuilderType: (type: BuilderMode) => void;
+
+  sectionsWebsite: Section[];
+  sectionsProduct: Section[];
+
   sections: Section[];
   history: Section[][];
   future: Section[][];
   currentDevice: Device;
-  selectedBlock: { sectionId: string; blockId: string } | null;
+  selectedBlock: SelectedBlock;
 
   setDevice: (device: Device) => void;
   setSelectedBlock: (sectionId: string, blockId: string) => void;
   clearSelectedBlock: () => void;
 
   addSection: (type: string, index?: number) => void;
+  removeSection: (sectionId: string) => void;
+
   addBlock: (sectionId: string, type: string, index?: number) => void;
   moveBlock: (sectionId: string, activeId: string, overId: string) => void;
-  updateBlock: (sectionId: string, blockId: string, updates: Partial<Style>) => void;
+
+  updateBlock: (
+    sectionId: string,
+    blockId: string,
+    updates: Partial<Block>
+  ) => void;
+
   updateBlockProps: (
     sectionId: string,
     blockId: string,
-    propsUpdates: Partial<Block["props"]>
+    updates: Partial<BlockProps>
   ) => void;
+
+  updateBlockStyle: (
+    sectionId: string,
+    blockId: string,
+    updates: Partial<Style>
+  ) => void;
+
   resizeBlock: (
     sectionId: string,
     blockId: string,
     direction: "left" | "right" | "top" | "bottom",
     delta: number
   ) => void;
+
   duplicateBlock: (sectionId: string, blockId: string) => void;
   removeBlock: (sectionId: string, blockId: string) => void;
 
+  addVariantSection: () => void;
+
   undo: () => void;
   redo: () => void;
-  exportData: () => Section[];
+  reset: () => void;
 };
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, value));
+const uid = () => Math.random().toString(36).slice(2, 11);
 
-const deepClone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
-
-const getPercent = (value?: string, fallback = 100) => {
+const parseSize = (value?: string, fallback = 0) => {
   if (!value) return fallback;
-  const parsed = parseFloat(value);
-  return Number.isNaN(parsed) ? fallback : parsed;
+  const num = parseFloat(String(value).replace("px", ""));
+  return Number.isFinite(num) ? num : fallback;
 };
 
-const getPixels = (value?: string, fallback = 120) => {
-  if (!value) return fallback;
-  const parsed = parseFloat(value);
-  return Number.isNaN(parsed) ? fallback : parsed;
-};
+const px = (value: number, min = 0) => `${Math.max(min, Math.round(value))}px`;
 
-const makeDefaultStyle = (): Required<Block["props"]>["style"] => ({
-  desktop: { width: "100%", minHeight: "120px" },
-  tablet: { width: "100%", minHeight: "120px" },
-  mobile: { width: "100%", minHeight: "120px" },
+const createStyle = (desktop?: Partial<Style>): BlockProps["style"] => ({
+  desktop: {
+    padding: "16px",
+    ...desktop,
+  },
+  tablet: {},
+  mobile: {},
 });
 
-const makeBlockDefaults = (type: string): Block["props"] => {
-  const base = {
-    style: makeDefaultStyle(),
+const createBlock = (type: string): Block => {
+  const id = uid();
+
+  const map: Record<string, Block> = {
+    heading: {
+      id,
+      type,
+      props: {
+        content: "Write a clear headline",
+        style: createStyle({
+          fontSize: "42px",
+          fontWeight: "800",
+          lineHeight: "1.1",
+          color: "#111827",
+        }),
+      },
+    },
+    text: {
+      id,
+      type,
+      props: {
+        content: "Add supporting text for this section.",
+        style: createStyle({
+          fontSize: "16px",
+          lineHeight: "1.7",
+          color: "#475569",
+        }),
+      },
+    },
+    paragraph: {
+      id,
+      type,
+      props: {
+        content: "Add supporting paragraph content here.",
+        style: createStyle({
+          fontSize: "16px",
+          lineHeight: "1.7",
+          color: "#475569",
+        }),
+      },
+    },
+    button: {
+      id,
+      type,
+      props: {
+        content: "Click here",
+        style: createStyle({
+          backgroundColor: "#111827",
+          color: "#ffffff",
+          padding: "12px 18px",
+          borderRadius: "12px",
+          width: "fit-content",
+        }),
+      },
+    },
+    submit: {
+      id,
+      type,
+      props: {
+        content: "Submit",
+        style: createStyle({
+          backgroundColor: "#111827",
+          color: "#ffffff",
+          padding: "12px 18px",
+          borderRadius: "12px",
+          width: "fit-content",
+        }),
+      },
+    },
+    badge: {
+      id,
+      type,
+      props: {
+        content: "New",
+        style: createStyle({
+          backgroundColor: "#fef3c7",
+          color: "#92400e",
+          padding: "8px 12px",
+          borderRadius: "999px",
+          width: "fit-content",
+        }),
+      },
+    },
+    image: {
+      id,
+      type,
+      props: {
+        src: "https://picsum.photos/1200/700",
+        alt: "Image block",
+        style: createStyle({
+          minHeight: "260px",
+          borderRadius: "16px",
+          objectFit: "cover",
+        }),
+      },
+    },
+    "image-block": {
+      id,
+      type,
+      props: {
+        src: "https://picsum.photos/1200/760",
+        alt: "Image block",
+        title: "Image title",
+        description: "Short image description",
+        style: createStyle({
+          padding: "0px",
+        }),
+      },
+    },
+    video: {
+      id,
+      type,
+      props: {
+        title: "Video title",
+        description: "Short video description",
+        poster: "https://picsum.photos/1200/760?grayscale",
+        style: createStyle({
+          padding: "0px",
+        }),
+      },
+    },
+    list: {
+      id,
+      type,
+      props: {
+        items: ["First item", "Second item", "Third item"],
+        style: createStyle(),
+      },
+    },
+    divider: {
+      id,
+      type,
+      props: {
+        style: createStyle({
+          padding: "8px 0px",
+        }),
+      },
+    },
+    quote: {
+      id,
+      type,
+      props: {
+        content: "A memorable quote goes here.",
+        subtitle: "Author name",
+        style: createStyle({
+          padding: "8px 0px",
+        }),
+      },
+    },
+    card: {
+      id,
+      type,
+      props: {
+        title: "Card title",
+        content: "Card content",
+        style: createStyle({
+          padding: "16px",
+          backgroundColor: "#ffffff",
+          borderRadius: "16px",
+          border: "1px solid #e5e7eb",
+        }),
+      },
+    },
+    stats: {
+      id,
+      type,
+      props: {
+        stats: [
+          { label: "Users", value: "12k" },
+          { label: "Growth", value: "24%" },
+          { label: "Revenue", value: "₹2.4L" },
+        ],
+        style: createStyle(),
+      },
+    },
+    navbar: {
+      id,
+      type,
+      props: {
+        title: "Brand",
+        links: [
+          { label: "Home", href: "#" },
+          { label: "About", href: "#" },
+          { label: "Contact", href: "#" },
+        ],
+        style: createStyle({
+          padding: "16px",
+        }),
+      },
+    },
+    hero: {
+      id,
+      type,
+      props: {
+        badge: "New launch",
+        title: "Build faster with flexible sections",
+        subtitle: "Create responsive pages with blocks you can move, style, and resize.",
+        buttons: [
+          { label: "Get started", href: "#", variant: "primary" },
+          { label: "Learn more", href: "#", variant: "secondary" },
+        ],
+        style: createStyle({
+          padding: "32px",
+          minHeight: "280px",
+        }),
+      },
+    },
+    features: {
+      id,
+      type,
+      props: {
+        title: "Features",
+        columns: [
+          { title: "Fast", content: "Quick setup and editing" },
+          { title: "Flexible", content: "Reusable blocks and layouts" },
+          { title: "Responsive", content: "Device-aware styling" },
+        ],
+        style: createStyle(),
+      },
+    },
+    pricing: {
+      id,
+      type,
+      props: {
+        title: "Pricing",
+        columns: [
+          { title: "Starter", content: "₹499", items: ["1 site", "Basic support"] },
+          { title: "Pro", content: "₹999", items: ["5 sites", "Priority support"] },
+          { title: "Scale", content: "₹1999", items: ["Unlimited", "Team access"] },
+        ],
+        style: createStyle(),
+      },
+    },
+    testimonials: {
+      id,
+      type,
+      props: {
+        title: "What customers say",
+        testimonials: [
+          { quote: "This builder is smooth and fast.", name: "Aman" },
+          { quote: "Editing sections feels easy.", name: "Riya" },
+        ],
+        style: createStyle(),
+      },
+    },
+    cta: {
+      id,
+      type,
+      props: {
+        title: "Ready to start?",
+        subtitle: "Launch your page in minutes.",
+        buttons: [{ label: "Start now", href: "#", variant: "primary" }],
+        style: createStyle({
+          padding: "24px",
+          backgroundColor: "#f8fafc",
+          borderRadius: "16px",
+        }),
+      },
+    },
+    footer: {
+      id,
+      type,
+      props: {
+        title: "Footer",
+        content: "© 2026 Your brand",
+        links: [
+          { label: "Privacy", href: "#" },
+          { label: "Terms", href: "#" },
+        ],
+        style: createStyle({
+          padding: "20px 16px",
+        }),
+      },
+    },
+    input: {
+      id,
+      type,
+      props: {
+        label: "Input label",
+        placeholder: "Enter value",
+        style: createStyle(),
+      },
+    },
+    textarea: {
+      id,
+      type,
+      props: {
+        label: "Message",
+        placeholder: "Write something...",
+        style: createStyle(),
+      },
+    },
+    select: {
+      id,
+      type,
+      props: {
+        label: "Choose option",
+        options: ["Option 1", "Option 2", "Option 3"],
+        style: createStyle(),
+      },
+    },
+    checkbox: {
+      id,
+      type,
+      props: {
+        label: "I agree to terms",
+        checked: false,
+        style: createStyle(),
+      },
+    },
+    product: {
+      id,
+      type,
+      props: {
+        title: "Product title",
+        description: "Short product description",
+        src: "https://picsum.photos/800/500",
+        alt: "Product image",
+        price: "₹999",
+        style: createStyle({
+          padding: "16px",
+          backgroundColor: "#ffffff",
+          borderRadius: "16px",
+          border: "1px solid #e5e7eb",
+        }),
+      },
+    },
+    "product-list": {
+      id,
+      type,
+      props: {
+        title: "Featured products",
+        products: [
+          { title: "Product one", price: "₹999", image: "https://picsum.photos/600/600?1" },
+          { title: "Product two", price: "₹1299", image: "https://picsum.photos/600/600?2" },
+          { title: "Product three", price: "₹899", image: "https://picsum.photos/600/600?3" },
+        ],
+        style: createStyle(),
+      },
+    },
+    cart: {
+      id,
+      type,
+      props: {
+        title: "Cart summary",
+        items: ["Product A × 1", "Product B × 2"],
+        price: "₹2,799",
+        style: createStyle({
+          padding: "16px",
+          backgroundColor: "#ffffff",
+          borderRadius: "16px",
+          border: "1px solid #e5e7eb",
+        }),
+      },
+    },
+    checkout: {
+      id,
+      type,
+      props: {
+        title: "Checkout",
+        subtitle: "Enter payment details",
+        style: createStyle({
+          padding: "16px",
+          backgroundColor: "#ffffff",
+          borderRadius: "16px",
+          border: "1px solid #e5e7eb",
+        }),
+      },
+    },
+    "blog-list": {
+      id,
+      type,
+      props: {
+        title: "Latest posts",
+        posts: [
+          { title: "Post one", excerpt: "Short summary for article one." },
+          { title: "Post two", excerpt: "Short summary for article two." },
+        ],
+        style: createStyle(),
+      },
+    },
+    "blog-post": {
+      id,
+      type,
+      props: {
+        title: "Blog post title",
+        subtitle: "Published April 2026",
+        content: "Write your article content here.",
+        style: createStyle({
+          padding: "16px 0px",
+        }),
+      },
+    },
+    faq: {
+      id,
+      type,
+      props: {
+        title: "Frequently asked questions",
+        faqs: [
+          { question: "What is this?", answer: "This is a flexible content block." },
+          { question: "Can I edit it?", answer: "Yes, all content is editable." },
+        ],
+        style: createStyle(),
+      },
+    },
+    table: {
+      id,
+      type,
+      props: {
+        title: "Table block",
+        columns: [
+          { title: "Name", items: ["A", "B", "C"] },
+          { title: "Role", items: ["Dev", "Design", "PM"] },
+          { title: "Status", items: ["Active", "Active", "Pending"] },
+        ],
+        style: createStyle(),
+      },
+    },
+    "product-title": {
+      id,
+      type,
+      props: {
+        content: "Premium Product Name",
+        style: createStyle({
+          fontSize: "32px",
+          fontWeight: "800",
+          lineHeight: "1.15",
+          color: "#111827",
+        }),
+      },
+    },
+    "product-description": {
+      id,
+      type,
+      props: {
+        content: "Describe the product, material, quality, and delivery promise.",
+        style: createStyle({
+          fontSize: "16px",
+          lineHeight: "1.7",
+          color: "#475569",
+        }),
+      },
+    },
+    "product-image": {
+      id,
+      type,
+      props: {
+        src: "https://picsum.photos/1000/1000?product",
+        alt: "Product image",
+        style: createStyle({
+          minHeight: "320px",
+          borderRadius: "16px",
+          objectFit: "cover",
+        }),
+      },
+    },
+    "product-gallery": {
+      id,
+      type,
+      props: {
+        images: [
+          "https://picsum.photos/900/900?random=21",
+          "https://picsum.photos/900/900?random=22",
+          "https://picsum.photos/900/900?random=23",
+          "https://picsum.photos/900/900?random=24",
+        ],
+        style: createStyle(),
+      },
+    },
+    price: {
+      id,
+      type,
+      props: {
+        price: "₹999",
+        style: createStyle({
+          fontSize: "26px",
+          fontWeight: "800",
+          color: "#111827",
+        }),
+      },
+    },
+    "discount-price": {
+      id,
+      type,
+      props: {
+        price: "₹999",
+        compareAt: "₹1,299",
+        style: createStyle(),
+      },
+    },
+    "add-to-cart": {
+      id,
+      type,
+      props: {
+        content: "Add to cart",
+        style: createStyle({
+          backgroundColor: "#111827",
+          color: "#ffffff",
+          padding: "14px 18px",
+          borderRadius: "12px",
+          width: "100%",
+        }),
+      },
+    },
+    "buy-now": {
+      id,
+      type,
+      props: {
+        content: "Buy now",
+        style: createStyle({
+          backgroundColor: "#f3f4f6",
+          color: "#111827",
+          padding: "14px 18px",
+          borderRadius: "12px",
+          width: "100%",
+          border: "1px solid #d1d5db",
+        }),
+      },
+    },
+    wishlist: {
+      id,
+      type,
+      props: {
+        content: "Save to wishlist",
+        style: createStyle({
+          backgroundColor: "#ffffff",
+          color: "#111827",
+          padding: "12px 16px",
+          borderRadius: "12px",
+          width: "100%",
+          border: "1px solid #e5e7eb",
+        }),
+      },
+    },
+    "quantity-selector": {
+      id,
+      type,
+      props: {
+        label: "Quantity",
+        style: createStyle(),
+      },
+    },
+    spacer: {
+      id,
+      type,
+      isSpacer: true,
+      props: {
+        style: createStyle({
+          minHeight: "60px",
+        }),
+      },
+    },
   };
 
-  switch (type) {
-    case "heading":
-      return {
-        ...base,
-        content: "Your headline",
-        style: {
-          desktop: {
-            ...base.style.desktop,
-            fontSize: "40px",
-            fontWeight: "700",
-            lineHeight: "1.1",
-          },
-          tablet: {
-            ...base.style.tablet,
-            fontSize: "32px",
-            fontWeight: "700",
-            lineHeight: "1.1",
-          },
-          mobile: {
-            ...base.style.mobile,
-            fontSize: "26px",
-            fontWeight: "700",
-            lineHeight: "1.2",
-          },
-        },
-      };
-
-    case "text":
-    case "paragraph":
-      return {
-        ...base,
-        content: "Edit this text content.",
-        style: {
-          desktop: {
-            ...base.style.desktop,
-            fontSize: "16px",
-            lineHeight: "1.7",
-          },
-          tablet: {
-            ...base.style.tablet,
-            fontSize: "16px",
-            lineHeight: "1.7",
-          },
-          mobile: {
-            ...base.style.mobile,
-            fontSize: "15px",
-            lineHeight: "1.6",
-          },
-        },
-      };
-
-    case "button":
-    case "submit":
-      return {
-        ...base,
-        content: "Click me",
-        href: "#",
-        style: {
-          desktop: {
-            ...base.style.desktop,
-            width: "220%",
-            minHeight: "72px",
-            backgroundColor: "#111827",
-            color: "#ffffff",
-            borderRadius: "12px",
-            fontWeight: "600",
-            fontSize: "16px",
-          },
-          tablet: {
-            ...base.style.tablet,
-            width: "220%",
-            minHeight: "72px",
-            backgroundColor: "#111827",
-            color: "#ffffff",
-            borderRadius: "12px",
-            fontWeight: "600",
-            fontSize: "16px",
-          },
-          mobile: {
-            ...base.style.mobile,
-            width: "100%",
-            minHeight: "64px",
-            backgroundColor: "#111827",
-            color: "#ffffff",
-            borderRadius: "12px",
-            fontWeight: "600",
-            fontSize: "16px",
-          },
-        },
-      };
-
-    case "image":
-    case "image-block":
-      return {
-        ...base,
-        alt: "Builder image",
-        src: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
-        style: {
-          desktop: {
-            ...base.style.desktop,
-            minHeight: "260px",
-            objectFit: "cover",
-          },
-          tablet: {
-            ...base.style.tablet,
-            minHeight: "220px",
-            objectFit: "cover",
-          },
-          mobile: {
-            ...base.style.mobile,
-            minHeight: "180px",
-            objectFit: "cover",
-          },
-        },
-      };
-
-    case "video":
-      return {
-        ...base,
-        src: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-        style: {
-          desktop: { ...base.style.desktop, minHeight: "320px" },
-          tablet: { ...base.style.tablet, minHeight: "260px" },
-          mobile: { ...base.style.mobile, minHeight: "220px" },
-        },
-      };
-
-    case "list":
-      return {
-        ...base,
-        items: ["First item", "Second item", "Third item"],
-      };
-
-    case "input":
-      return {
-        ...base,
-        label: "Input label",
-        placeholder: "Type here",
-      };
-
-    case "textarea":
-      return {
-        ...base,
-        label: "Textarea label",
-        placeholder: "Write here",
-        style: {
-          desktop: { ...base.style.desktop, minHeight: "160px" },
-          tablet: { ...base.style.tablet, minHeight: "160px" },
-          mobile: { ...base.style.mobile, minHeight: "140px" },
-        },
-      };
-
-    case "select":
-      return {
-        ...base,
-        label: "Choose one",
-        options: ["Option 1", "Option 2", "Option 3"],
-      };
-
-    case "checkbox":
-      return {
-        ...base,
-        label: "I agree to the terms",
-        style: {
-          desktop: { ...base.style.desktop, minHeight: "auto", width: "100%" },
-          tablet: { ...base.style.tablet, minHeight: "auto", width: "100%" },
-          mobile: { ...base.style.mobile, minHeight: "auto", width: "100%" },
-        },
-      };
-
-    default:
-      return {
-        ...base,
-        content: `New ${type}`,
-      };
-  }
+  return map[type] || {
+    id,
+    type,
+    props: {
+      content: `${type} block`,
+      style: createStyle(),
+    },
+  };
 };
 
-const ensureSpacer = (blocks: Block[], device: Device) => {
-  const clean = (blocks || []).filter((b) => b && b.id);
-  const nonSpacer = clean.filter((b) => !b.isSpacer);
+const createSection = (type: string): Section => {
+  const id = uid();
 
-  const used = nonSpacer.reduce((sum, block) => {
-    const width = getPercent(block.props?.style?.[device]?.width, 100);
-    return sum + width;
-  }, 0);
+  const sectionMap: Record<string, Section> = {
+    hero: {
+      id,
+      type,
+      blocks: [createBlock("hero")],
+    },
+    content: {
+      id,
+      type,
+      blocks: [createBlock("heading"), createBlock("text")],
+    },
+    features: {
+      id,
+      type,
+      blocks: [createBlock("features")],
+    },
+    pricing: {
+      id,
+      type,
+      blocks: [createBlock("pricing")],
+    },
+    testimonials: {
+      id,
+      type,
+      blocks: [createBlock("testimonials")],
+    },
+    faq: {
+      id,
+      type,
+      blocks: [createBlock("faq")],
+    },
+    footer: {
+      id,
+      type,
+      blocks: [createBlock("footer")],
+    },
+    productHero: {
+      id,
+      type,
+      blocks: [createBlock("product-gallery"), createBlock("product-title"), createBlock("discount-price"), createBlock("product-description"), createBlock("quantity-selector"), createBlock("add-to-cart"), createBlock("buy-now"), createBlock("wishlist")],
+    },
+    products: {
+      id,
+      type,
+      blocks: [createBlock("product-list")],
+    },
+    blog: {
+      id,
+      type,
+      blocks: [createBlock("blog-list")],
+    },
+    form: {
+      id,
+      type,
+      blocks: [createBlock("input"), createBlock("textarea"), createBlock("submit")],
+    },
+  };
 
-  const remaining = clamp(100 - used, 0, 100);
-  const existingSpacer = clean.find((b) => b.isSpacer);
-  const next = [...nonSpacer];
-
-  if (remaining > 0 && remaining < 100) {
-    const spacer: Block =
-      existingSpacer ??
-      ({
-        id: crypto.randomUUID(),
-        type: "spacer",
-        isSpacer: true,
-        props: {
-          content: "Blank space",
-          style: {
-            desktop: {},
-            tablet: {},
-            mobile: {},
-          },
-        },
-      } as Block);
-
-    spacer.props.style = {
-      ...spacer.props.style,
-      [device]: {
-        ...spacer.props.style?.[device],
-        width: `${remaining}%`,
-        minHeight: "120px",
-      },
-    };
-
-    next.push(spacer);
-  }
-
-  return next;
+  return sectionMap[type] || {
+    id,
+    type,
+    blocks: [],
+  };
 };
 
-const stripSpacers = (blocks: Block[] = []) =>
-  blocks.filter((b) => b && b.id && !b.isSpacer);
-
-const rebalanceSections = (sections: Section[], device: Device) =>
-  sections.map((section) => ({
-    ...section,
-    blocks: ensureSpacer(stripSpacers(section.blocks), device),
-  }));
-
-const initialSections: Section[] = [
-  { id: "section-navbar", type: "navbar", blocks: [] },
-  { id: "section-hero", type: "hero", blocks: [] },
-  { id: "section-content-1", type: "section", blocks: [] },
-  { id: "section-content-2", type: "section", blocks: [] },
-  { id: "section-footer", type: "footer", blocks: [] },
+const defaultWebsiteSections: Section[] = [
+  createSection("hero"),
+  createSection("features"),
+  createSection("footer"),
 ];
 
+const defaultProductSections: Section[] = [
+  createSection("productHero"),
+  createSection("faq"),
+];
+
+const cloneSections = (sections: Section[]) =>
+  JSON.parse(JSON.stringify(sections)) as Section[];
+
+const getSectionsForType = (
+  type: BuilderMode,
+  website: Section[],
+  product: Section[]
+) => (type === "product" ? product : website);
+
+const setSectionsForType = (
+  state: BuilderState,
+  type: BuilderMode,
+  sections: Section[]
+) => {
+  const cloned = cloneSections(sections);
+
+  if (type === "product") {
+    return {
+      ...state,
+      sectionsProduct: cloned,
+      sections: cloned,
+    };
+  }
+
+  return {
+    ...state,
+    sectionsWebsite: cloned,
+    sections: cloned,
+  };
+};
+
+const pushHistory = (state: BuilderState, current: Section[]) => ({
+  history: [...state.history, cloneSections(current)],
+  future: [],
+});
+
+const mutateActiveSections = (
+  state: BuilderState,
+  recipe: (sections: Section[]) => Section[]
+) => {
+  const current = getSectionsForType(
+    state.builderType,
+    state.sectionsWebsite,
+    state.sectionsProduct
+  );
+
+  const next = recipe(cloneSections(current));
+
+  return {
+    ...setSectionsForType(state, state.builderType, next),
+    ...pushHistory(state, current),
+  };
+};
+
 export const useBuilder = create<BuilderState>((set, get) => ({
-  sections: initialSections,
+  builderType: "website",
+  sectionsWebsite: cloneSections(defaultWebsiteSections),
+  sectionsProduct: cloneSections(defaultProductSections),
+  sections: cloneSections(defaultWebsiteSections),
   history: [],
   future: [],
   currentDevice: "desktop",
   selectedBlock: null,
 
+  setBuilderType: (type) =>
+    set((state) => {
+      const sections =
+        type === "product" ? state.sectionsProduct : state.sectionsWebsite;
+
+      return {
+        builderType: type,
+        sections: cloneSections(sections),
+        selectedBlock: null,
+      };
+    }),
+
   setDevice: (device) => set({ currentDevice: device }),
 
   setSelectedBlock: (sectionId, blockId) =>
-    set({ selectedBlock: { sectionId, blockId } }),
+    set({
+      selectedBlock: { sectionId, blockId },
+    }),
 
   clearSelectedBlock: () => set({ selectedBlock: null }),
 
   addSection: (type, index) =>
-    set((state) => {
-      const snapshot = deepClone(state.sections);
-      const sections = deepClone(state.sections);
-      const newSection: Section = {
-        id: crypto.randomUUID(),
-        type,
-        blocks: [],
-      };
+    set((state) =>
+      mutateActiveSections(state, (sections) => {
+        const newSection = createSection(type);
 
-      if (typeof index === "number") {
-        sections.splice(index + 1, 0, newSection);
-      } else {
-        sections.push(newSection);
-      }
+        if (typeof index === "number" && index >= 0 && index <= sections.length) {
+          sections.splice(index, 0, newSection);
+        } else {
+          sections.push(newSection);
+        }
 
-      return {
-        history: [...state.history, snapshot],
-        future: [],
-        sections,
-      };
-    }),
+        return sections;
+      })
+    ),
+
+  removeSection: (sectionId) =>
+    set((state) =>
+      mutateActiveSections(state, (sections) =>
+        sections.filter((section) => section.id !== sectionId)
+      )
+    ),
 
   addBlock: (sectionId, type, index) =>
-    set((state) => {
-      const device = state.currentDevice;
-      const snapshot = deepClone(state.sections);
+    set((state) =>
+      mutateActiveSections(state, (sections) => {
+        return sections.map((section) => {
+          if (section.id !== sectionId) return section;
 
-      const updatedSections = state.sections.map((section) => {
-        if (section.id !== sectionId) return section;
+          const nextBlocks = [...section.blocks];
+          const newBlock = createBlock(type);
 
-        const cleanBlocks = stripSpacers(section.blocks);
-        const newBlock: Block = {
-          id: crypto.randomUUID(),
-          type,
-          props: makeBlockDefaults(type),
-        };
-
-        const nextBlocks =
-          typeof index === "number"
-            ? [
-                ...cleanBlocks.slice(0, index),
-                newBlock,
-                ...cleanBlocks.slice(index),
-              ]
-            : [...cleanBlocks, newBlock];
-
-        return {
-          ...section,
-          blocks: ensureSpacer(nextBlocks, device),
-        };
-      });
-
-      return {
-        history: [...state.history, snapshot],
-        future: [],
-        sections: updatedSections,
-      };
-    }),
-
-  moveBlock: (sectionId, activeId, overId) =>
-    set((state) => {
-      const device = state.currentDevice;
-      const snapshot = deepClone(state.sections);
-      let movingBlock: Block | null = null;
-
-      const sectionsWithoutActive = state.sections.map((section) => {
-        const cleanBlocks = stripSpacers(section.blocks);
-        const remaining = cleanBlocks.filter((block) => {
-          if (block.id === activeId) {
-            movingBlock = block;
-            return false;
+          if (typeof index === "number" && index >= 0 && index <= nextBlocks.length) {
+            nextBlocks.splice(index, 0, newBlock);
+          } else {
+            nextBlocks.push(newBlock);
           }
-          return true;
-        });
 
-        return {
-          ...section,
-          blocks: remaining,
-        };
-      });
-
-      if (!movingBlock) return state;
-
-      const updatedSections = sectionsWithoutActive.map((section) => {
-        const cleanBlocks = stripSpacers(section.blocks);
-
-        if (section.id !== sectionId) {
           return {
             ...section,
-            blocks: ensureSpacer(cleanBlocks, device),
+            blocks: nextBlocks,
           };
-        }
+        });
+      })
+    ),
 
-        let insertAt = cleanBlocks.length;
+  moveBlock: (sectionId, activeId, overId) =>
+    set((state) =>
+      mutateActiveSections(state, (sections) =>
+        sections.map((section) => {
+          if (section.id !== sectionId) return section;
 
-        if (overId && !String(overId).startsWith("section-drop-")) {
-          const overIndex = cleanBlocks.findIndex((b) => b.id === overId);
-          if (overIndex !== -1) insertAt = overIndex;
-        }
+          const oldIndex = section.blocks.findIndex((b) => b.id === activeId);
+          const newIndex = section.blocks.findIndex((b) => b.id === overId);
 
-        const nextBlocks = [
-          ...cleanBlocks.slice(0, insertAt),
-          movingBlock!,
-          ...cleanBlocks.slice(insertAt),
-        ];
+          if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
+            return section;
+          }
 
-        return {
-          ...section,
-          blocks: ensureSpacer(nextBlocks, device),
-        };
-      });
+          const nextBlocks = [...section.blocks];
+          const [moved] = nextBlocks.splice(oldIndex, 1);
+          nextBlocks.splice(newIndex, 0, moved);
 
-      return {
-        history: [...state.history, snapshot],
-        future: [],
-        sections: updatedSections,
-      };
-    }),
+          return {
+            ...section,
+            blocks: nextBlocks,
+          };
+        })
+      )
+    ),
 
   updateBlock: (sectionId, blockId, updates) =>
-    set((state) => {
-      const device = state.currentDevice;
-      const snapshot = deepClone(state.sections);
+    set((state) =>
+      mutateActiveSections(state, (sections) =>
+        sections.map((section) => {
+          if (section.id !== sectionId) return section;
 
-      const updatedSections = state.sections.map((section) => {
-        if (section.id !== sectionId) return section;
+          return {
+            ...section,
+            blocks: section.blocks.map((block) =>
+              block.id === blockId
+                ? {
+                    ...block,
+                    ...updates,
+                    props: {
+                      ...block.props,
+                      ...(updates.props || {}),
+                    },
+                  }
+                : block
+            ),
+          };
+        })
+      )
+    ),
 
-        const nextBlocks = stripSpacers(section.blocks).map((block) =>
-          block.id !== blockId
-            ? block
-            : {
+  updateBlockProps: (sectionId, blockId, updates) =>
+    set((state) =>
+      mutateActiveSections(state, (sections) =>
+        sections.map((section) => {
+          if (section.id !== sectionId) return section;
+
+          return {
+            ...section,
+            blocks: section.blocks.map((block) =>
+              block.id === blockId
+                ? {
+                    ...block,
+                    props: {
+                      ...block.props,
+                      ...updates,
+                    },
+                  }
+                : block
+            ),
+          };
+        })
+      )
+    ),
+
+  updateBlockStyle: (sectionId, blockId, updates) =>
+    set((state) =>
+      mutateActiveSections(state, (sections) =>
+        sections.map((section) => {
+          if (section.id !== sectionId) return section;
+
+          return {
+            ...section,
+            blocks: section.blocks.map((block) => {
+              if (block.id !== blockId) return block;
+
+              const existingStyle = block.props.style || {};
+              const deviceStyle = existingStyle[state.currentDevice] || {};
+
+              return {
                 ...block,
                 props: {
                   ...block.props,
                   style: {
-                    ...block.props.style,
-                    [device]: {
-                      ...block.props.style?.[device],
+                    ...existingStyle,
+                    [state.currentDevice]: {
+                      ...deviceStyle,
                       ...updates,
                     },
                   },
                 },
+              };
+            }),
+          };
+        })
+      )
+    ),
+
+  resizeBlock: (sectionId, blockId, direction, delta) =>
+    set((state) =>
+      mutateActiveSections(state, (sections) =>
+        sections.map((section) => {
+          if (section.id !== sectionId) return section;
+
+          return {
+            ...section,
+            blocks: section.blocks.map((block) => {
+              if (block.id !== blockId) return block;
+
+              const blockStyle = block.props.style || {};
+              const current = blockStyle[state.currentDevice] || {};
+
+              const width = parseSize(current.width, 0);
+              const minHeight = parseSize(current.minHeight, 120);
+              const height = parseSize(current.height, 0);
+
+              let next: Partial<Style> = {};
+
+              if (direction === "left" || direction === "right") {
+                const baseWidth = width || 320;
+                next.width = px(baseWidth + delta, 80);
               }
-        );
 
-        return {
-          ...section,
-          blocks: ensureSpacer(nextBlocks, device),
-        };
-      });
+              if (direction === "top" || direction === "bottom") {
+                if (height) {
+                  next.height = px(height + delta, 40);
+                } else {
+                  next.minHeight = px(minHeight + delta, 40);
+                }
+              }
 
-      return {
-        history: [...state.history, snapshot],
-        future: [],
-        sections: updatedSections,
-      };
-    }),
-
-  updateBlockProps: (sectionId, blockId, propsUpdates) =>
-    set((state) => {
-      const device = state.currentDevice;
-      const snapshot = deepClone(state.sections);
-
-      const updatedSections = state.sections.map((section) => {
-        if (section.id !== sectionId) return section;
-
-        const nextBlocks = stripSpacers(section.blocks).map((block) =>
-          block.id !== blockId
-            ? block
-            : {
+              return {
                 ...block,
                 props: {
                   ...block.props,
-                  ...propsUpdates,
                   style: {
-                    ...block.props.style,
-                    [device]: {
-                      ...block.props.style?.[device],
+                    ...blockStyle,
+                    [state.currentDevice]: {
+                      ...current,
+                      ...next,
                     },
                   },
                 },
-              }
-        );
+              };
+            }),
+          };
+        })
+      )
+    ),
 
-        return {
-          ...section,
-          blocks: ensureSpacer(nextBlocks, device),
-        };
-      });
+  duplicateBlock: (sectionId, blockId) =>
+    set((state) =>
+      mutateActiveSections(state, (sections) =>
+        sections.map((section) => {
+          if (section.id !== sectionId) return section;
 
-      return {
-        history: [...state.history, snapshot],
-        future: [],
-        sections: updatedSections,
-      };
-    }),
+          const index = section.blocks.findIndex((b) => b.id === blockId);
+          if (index === -1) return section;
 
-  resizeBlock: (sectionId, blockId, direction, delta) =>
-    set((state) => {
-      const device = state.currentDevice;
-      const snapshot = deepClone(state.sections);
+          const original = section.blocks[index];
+          const copy: Block = {
+            ...cloneSections([{ id: "x", type: "x", blocks: [original] }])[0].blocks[0],
+            id: uid(),
+          };
 
-      const updatedSections = state.sections.map((section) => {
-        if (section.id !== sectionId) return section;
-
-        const nextBlocks = stripSpacers(section.blocks).map((block) => {
-          if (block.id !== blockId) return block;
-
-          const current = block.props?.style?.[device] || {};
-          const currentWidth = getPercent(current.width, 100);
-          const currentHeight = getPixels(current.minHeight || current.height, 120);
-
-          let nextWidth = currentWidth;
-          let nextHeight = currentHeight;
-
-          if (direction === "left" || direction === "right") {
-            nextWidth = clamp(currentWidth + delta, 20, 100);
-          }
-
-          if (direction === "top" || direction === "bottom") {
-            nextHeight = clamp(currentHeight + delta * 4, 80, 960);
-          }
+          const nextBlocks = [...section.blocks];
+          nextBlocks.splice(index + 1, 0, copy);
 
           return {
-            ...block,
-            props: {
-              ...block.props,
-              style: {
-                ...block.props.style,
-                [device]: {
-                  ...current,
-                  width: `${nextWidth}%`,
-                  minHeight: `${nextHeight}px`,
-                },
-              },
-            },
+            ...section,
+            blocks: nextBlocks,
+          };
+        })
+      )
+    ),
+
+  removeBlock: (sectionId, blockId) =>
+    set((state) =>
+      mutateActiveSections(state, (sections) => {
+        const nextSections = sections.map((section) => {
+          if (section.id !== sectionId) return section;
+
+          return {
+            ...section,
+            blocks: section.blocks.filter((block) => block.id !== blockId),
           };
         });
 
-        return {
-          ...section,
-          blocks: ensureSpacer(nextBlocks, device),
-        };
-      });
+        return nextSections;
+      })
+    ),
 
-      return {
-        history: [...state.history, snapshot],
-        future: [],
-        sections: updatedSections,
-      };
-    }),
-
-  duplicateBlock: (sectionId, blockId) =>
-    set((state) => {
-      const device = state.currentDevice;
-      const snapshot = deepClone(state.sections);
-
-      const updatedSections = state.sections.map((section) => {
-        if (section.id !== sectionId) return section;
-
-        const cleanBlocks = stripSpacers(section.blocks);
-        const index = cleanBlocks.findIndex((block) => block.id === blockId);
-        if (index === -1) return section;
-
-        const original = cleanBlocks[index];
-        const clone: Block = {
-          ...deepClone(original),
-          id: crypto.randomUUID(),
+  addVariantSection: () =>
+    set((state) =>
+      mutateActiveSections(state, (sections) => {
+        const variant: Section = {
+          id: uid(),
+          type: state.builderType === "product" ? "productVariant" : "variant",
+          blocks:
+            state.builderType === "product"
+              ? [
+                  createBlock("product-image"),
+                  createBlock("product-title"),
+                  createBlock("discount-price"),
+                  createBlock("quantity-selector"),
+                  createBlock("add-to-cart"),
+                ]
+              : [createBlock("heading"), createBlock("text"), createBlock("button")],
         };
 
-        const nextBlocks = [
-          ...cleanBlocks.slice(0, index + 1),
-          clone,
-          ...cleanBlocks.slice(index + 1),
-        ];
-
-        return {
-          ...section,
-          blocks: ensureSpacer(nextBlocks, device),
-        };
-      });
-
-      return {
-        history: [...state.history, snapshot],
-        future: [],
-        sections: updatedSections,
-      };
-    }),
-
-  removeBlock: (sectionId, blockId) =>
-    set((state) => {
-      const device = state.currentDevice;
-      const snapshot = deepClone(state.sections);
-
-      const updatedSections = state.sections.map((section) => {
-        if (section.id !== sectionId) return section;
-
-        const nextBlocks = stripSpacers(section.blocks).filter(
-          (block) => block.id !== blockId
-        );
-
-        return {
-          ...section,
-          blocks: ensureSpacer(nextBlocks, device),
-        };
-      });
-
-      return {
-        history: [...state.history, snapshot],
-        future: [],
-        sections: updatedSections,
-        selectedBlock:
-          state.selectedBlock?.sectionId === sectionId &&
-          state.selectedBlock?.blockId === blockId
-            ? null
-            : state.selectedBlock,
-      };
-    }),
+        sections.push(variant);
+        return sections;
+      })
+    ),
 
   undo: () =>
     set((state) => {
-      if (state.history.length === 0) return state;
+      if (!state.history.length) return state;
+
+      const current = getSectionsForType(
+        state.builderType,
+        state.sectionsWebsite,
+        state.sectionsProduct
+      );
 
       const previous = state.history[state.history.length - 1];
-      const newHistory = state.history.slice(0, -1);
+      const nextHistory = state.history.slice(0, -1);
+
+      const base = {
+        history: nextHistory,
+        future: [...state.future, cloneSections(current)],
+        selectedBlock: null,
+      };
+
+      if (state.builderType === "product") {
+        return {
+          ...state,
+          ...base,
+          sectionsProduct: cloneSections(previous),
+          sections: cloneSections(previous),
+        };
+      }
 
       return {
-        sections: rebalanceSections(deepClone(previous), state.currentDevice),
-        history: newHistory,
-        future: [deepClone(state.sections), ...state.future],
+        ...state,
+        ...base,
+        sectionsWebsite: cloneSections(previous),
+        sections: cloneSections(previous),
       };
     }),
 
   redo: () =>
     set((state) => {
-      if (state.future.length === 0) return state;
+      if (!state.future.length) return state;
 
-      const next = state.future[0];
-      const newFuture = state.future.slice(1);
+      const current = getSectionsForType(
+        state.builderType,
+        state.sectionsWebsite,
+        state.sectionsProduct
+      );
+
+      const next = state.future[state.future.length - 1];
+      const nextFuture = state.future.slice(0, -1);
+
+      const base = {
+        history: [...state.history, cloneSections(current)],
+        future: nextFuture,
+        selectedBlock: null,
+      };
+
+      if (state.builderType === "product") {
+        return {
+          ...state,
+          ...base,
+          sectionsProduct: cloneSections(next),
+          sections: cloneSections(next),
+        };
+      }
 
       return {
-        sections: rebalanceSections(deepClone(next), state.currentDevice),
-        history: [...state.history, deepClone(state.sections)],
-        future: newFuture,
+        ...state,
+        ...base,
+        sectionsWebsite: cloneSections(next),
+        sections: cloneSections(next),
       };
     }),
 
-  exportData: () => {
-    const { sections } = get();
-    return deepClone(sections).map((section) => ({
-      ...section,
-      blocks: stripSpacers(section.blocks),
-    }));
-  },
+  reset: () =>
+    set((state) => {
+      const website = cloneSections(defaultWebsiteSections);
+      const product = cloneSections(defaultProductSections);
+      const active = state.builderType === "product" ? product : website;
+
+      return {
+        sectionsWebsite: website,
+        sectionsProduct: product,
+        sections: active,
+        history: [],
+        future: [],
+        selectedBlock: null,
+      };
+    }),
 }));

@@ -3,6 +3,23 @@
 import { useMemo } from "react";
 import { useBuilder } from "@/app/lib/useBuilder";
 
+const textFields = ["content", "title", "subtitle", "description", "label", "placeholder", "href", "src", "alt", "price", "badge"];
+const styleFields = [
+  { key: "width", label: "Width" },
+  { key: "minHeight", label: "Min height" },
+  { key: "padding", label: "Padding" },
+  { key: "margin", label: "Margin" },
+  { key: "fontSize", label: "Font size" },
+  { key: "fontWeight", label: "Font weight" },
+  { key: "lineHeight", label: "Line height" },
+  { key: "color", label: "Text color" },
+  { key: "backgroundColor", label: "Background" },
+  { key: "borderRadius", label: "Radius" },
+  { key: "boxShadow", label: "Shadow" },
+  { key: "textAlign", label: "Text align" },
+  { key: "border", label: "Border" },
+];
+
 export default function StylePanel() {
   const {
     selectedBlock,
@@ -15,17 +32,12 @@ export default function StylePanel() {
 
   const target = useMemo(() => {
     if (!selectedBlock) return null;
-
     const section = sections.find((s) => s.id === selectedBlock.sectionId);
-    if (!section) return null;
-
-    const block = section.blocks.find((b) => b.id === selectedBlock.blockId);
-    if (!block) return null;
-
-    return { section, block };
+    const block = section?.blocks.find((b) => b.id === selectedBlock.blockId);
+    return block ? { section, block } : null;
   }, [sections, selectedBlock]);
 
-  if (!target) {
+  if (!selectedBlock || !target) {
     return (
       <aside className="style-panel">
         <div className="style-panel-head">
@@ -33,14 +45,15 @@ export default function StylePanel() {
           <h3>No selection</h3>
         </div>
         <div className="style-panel-empty">
-          Select a block from the canvas to edit content and styles.
+          Select a block on the canvas to edit content and styles.
         </div>
       </aside>
     );
   }
 
   const { section, block } = target;
-  const style = block.props?.style?.[currentDevice] || {};
+  const props = block.props || {};
+  const style = props?.style?.[currentDevice] || {};
 
   const onStyleChange = (key: string, value: string) => {
     updateBlock(section.id, block.id, { [key]: value });
@@ -50,203 +63,87 @@ export default function StylePanel() {
     updateBlockProps(section.id, block.id, { [key]: value });
   };
 
+  const onListChange = (key: string, value: string) => {
+    const items = value
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    updateBlockProps(section.id, block.id, { [key]: items });
+  };
+
   return (
     <aside className="style-panel">
       <div className="style-panel-head">
         <div className="style-kicker">Inspector</div>
-        <h3>{block.type}</h3>
+        <h3>{block.type.replace(/-/g, " ")}</h3>
       </div>
 
       <div className="style-panel-body">
         <div className="panel-field">
           <span>Device</span>
           <div className="device-tabs">
-            <button
-              type="button"
-              className={currentDevice === "desktop" ? "active" : ""}
-              onClick={() => setDevice("desktop")}
-            >
-              Desktop
-            </button>
-            <button
-              type="button"
-              className={currentDevice === "tablet" ? "active" : ""}
-              onClick={() => setDevice("tablet")}
-            >
-              Tablet
-            </button>
-            <button
-              type="button"
-              className={currentDevice === "mobile" ? "active" : ""}
-              onClick={() => setDevice("mobile")}
-            >
-              Mobile
-            </button>
+            {(["desktop", "tablet", "mobile"] as const).map((device) => (
+              <button
+                key={device}
+                type="button"
+                className={currentDevice === device ? "active" : ""}
+                onClick={() => setDevice(device)}
+              >
+                {device}
+              </button>
+            ))}
           </div>
         </div>
 
-        {"content" in block.props && (
+        {textFields
+          .filter((field) => typeof props[field] === "string")
+          .map((field) => (
+            <label key={field} className="panel-field">
+              <span>{field.replace(/([A-Z])/g, " $1")}</span>
+              {field === "content" || field === "description" || field === "subtitle" ? (
+                <textarea
+                  value={props[field] || ""}
+                  onChange={(e) => onPropsChange(field, e.target.value)}
+                />
+              ) : (
+                <input
+                  value={props[field] || ""}
+                  onChange={(e) => onPropsChange(field, e.target.value)}
+                />
+              )}
+            </label>
+          ))}
+
+        {Array.isArray(props.items) && (
           <label className="panel-field">
-            <span>Content</span>
+            <span>Items</span>
             <textarea
-              value={block.props.content || ""}
-              onChange={(e) => onPropsChange("content", e.target.value)}
-              placeholder="Write something..."
+              value={(props.items || []).join("\n")}
+              onChange={(e) => onListChange("items", e.target.value)}
             />
           </label>
         )}
 
-        {"label" in block.props && (
+        {Array.isArray(props.options) && (
           <label className="panel-field">
-            <span>Label</span>
-            <input
-              value={block.props.label || ""}
-              onChange={(e) => onPropsChange("label", e.target.value)}
-              placeholder="Label"
+            <span>Options</span>
+            <textarea
+              value={(props.options || []).join("\n")}
+              onChange={(e) => onListChange("options", e.target.value)}
             />
           </label>
         )}
 
-        {"href" in block.props && (
-          <label className="panel-field">
-            <span>Link</span>
+        {styleFields.map((field) => (
+          <label key={field.key} className="panel-field">
+            <span>{field.label}</span>
             <input
-              value={block.props.href || ""}
-              onChange={(e) => onPropsChange("href", e.target.value)}
-              placeholder="https://..."
+              value={(style as any)[field.key] || ""}
+              onChange={(e) => onStyleChange(field.key, e.target.value)}
+              placeholder={field.key === "width" ? "100%" : ""}
             />
           </label>
-        )}
-
-        {"src" in block.props && (
-          <label className="panel-field">
-            <span>Image / Video URL</span>
-            <input
-              value={block.props.src || ""}
-              onChange={(e) => onPropsChange("src", e.target.value)}
-              placeholder="https://..."
-            />
-          </label>
-        )}
-
-        {"alt" in block.props && (
-          <label className="panel-field">
-            <span>Alt text</span>
-            <input
-              value={block.props.alt || ""}
-              onChange={(e) => onPropsChange("alt", e.target.value)}
-              placeholder="Describe the media"
-            />
-          </label>
-        )}
-
-        <label className="panel-field">
-          <span>Padding</span>
-          <input
-            value={style.padding || ""}
-            onChange={(e) => onStyleChange("padding", e.target.value)}
-            placeholder="24px"
-          />
-        </label>
-
-        <label className="panel-field">
-          <span>Margin</span>
-          <input
-            value={style.margin || ""}
-            onChange={(e) => onStyleChange("margin", e.target.value)}
-            placeholder="0"
-          />
-        </label>
-
-        <label className="panel-field">
-          <span>Width</span>
-          <input
-            value={style.width || ""}
-            onChange={(e) => onStyleChange("width", e.target.value)}
-            placeholder="100%"
-          />
-        </label>
-
-        <label className="panel-field">
-          <span>Height</span>
-          <input
-            value={style.height || ""}
-            onChange={(e) => onStyleChange("height", e.target.value)}
-            placeholder="auto"
-          />
-        </label>
-
-        <label className="panel-field">
-          <span>Min height</span>
-          <input
-            value={style.minHeight || ""}
-            onChange={(e) => onStyleChange("minHeight", e.target.value)}
-            placeholder="120px"
-          />
-        </label>
-
-        <label className="panel-field">
-          <span>Font size</span>
-          <input
-            value={style.fontSize || ""}
-            onChange={(e) => onStyleChange("fontSize", e.target.value)}
-            placeholder="16px"
-          />
-        </label>
-
-        <label className="panel-field">
-          <span>Font weight</span>
-          <input
-            value={style.fontWeight || ""}
-            onChange={(e) => onStyleChange("fontWeight", e.target.value)}
-            placeholder="600"
-          />
-        </label>
-
-        <label className="panel-field">
-          <span>Line height</span>
-          <input
-            value={style.lineHeight || ""}
-            onChange={(e) => onStyleChange("lineHeight", e.target.value)}
-            placeholder="1.5"
-          />
-        </label>
-
-        <label className="panel-field">
-          <span>Text color</span>
-          <input
-            value={style.color || ""}
-            onChange={(e) => onStyleChange("color", e.target.value)}
-            placeholder="#172018"
-          />
-        </label>
-
-        <label className="panel-field">
-          <span>Background</span>
-          <input
-            value={style.backgroundColor || ""}
-            onChange={(e) => onStyleChange("backgroundColor", e.target.value)}
-            placeholder="#ffffff"
-          />
-        </label>
-
-        <label className="panel-field">
-          <span>Border radius</span>
-          <input
-            value={style.borderRadius || ""}
-            onChange={(e) => onStyleChange("borderRadius", e.target.value)}
-            placeholder="16px"
-          />
-        </label>
-
-        <label className="panel-field">
-          <span>Shadow</span>
-          <input
-            value={style.boxShadow || ""}
-            onChange={(e) => onStyleChange("boxShadow", e.target.value)}
-            placeholder="0 10px 30px rgba(0,0,0,0.08)"
-          />
-        </label>
+        ))}
       </div>
     </aside>
   );
