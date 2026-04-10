@@ -4,7 +4,6 @@ import {
   Monitor,
   Tablet,
   Smartphone,
-  Plus,
   Undo2,
   Redo2,
   Download,
@@ -12,17 +11,26 @@ import {
 } from "lucide-react";
 import { useBuilder } from "@/app/lib/useBuilder";
 
-type Props = {
-  onAddSection?: () => void;
-};
+function getDeviceFrameLabel(device: "desktop" | "tablet" | "mobile") {
+  switch (device) {
+    case "mobile":
+      return "390 × 844";
+    case "tablet":
+      return "820 × 1180";
+    case "desktop":
+    default:
+      return "1280 × 800";
+  }
+}
 
-export default function CanvasTopbar({ onAddSection }: Props) {
-  const currentDevice = useBuilder((s) => s.currentDevice);
-  const setDevice = useBuilder((s) => s.setDevice);
-  const undo = useBuilder((s) => s.undo);
-  const redo = useBuilder((s) => s.redo);
-  const exportData = useBuilder((s) => s.exportData);
-  const sections = useBuilder((s) => s.sections);
+export default function CanvasTopbar() {
+  const currentDevice = useBuilder((s: any) => s.currentDevice);
+  const setDevice = useBuilder((s: any) => s.setDevice);
+  const undo = useBuilder((s: any) => s.undo);
+  const redo = useBuilder((s: any) => s.redo);
+  const exportData = useBuilder((s: any) => s.exportData);
+  const sections = useBuilder((s: any) => s.sections);
+  const builderType = useBuilder((s: any) => s.builderType);
 
   const handleExport = () => {
     const data = exportData();
@@ -45,9 +53,10 @@ export default function CanvasTopbar({ onAddSection }: Props) {
             <Layers3 size={14} />
             Canvas
           </span>
+
           <div className="canvas-topbar-meta">
-            <strong>Page Builder</strong>
-            <span>{sections.length} sections</span>
+            <strong>{builderType === "product" ? "Product Builder" : "Website Builder"}</strong>
+            <span>{sections.length} section(s)</span>
           </div>
         </div>
       </div>
@@ -83,7 +92,12 @@ export default function CanvasTopbar({ onAddSection }: Props) {
             <Smartphone size={16} />
             <span>Mobile</span>
           </button>
+
+          
         </div>
+        <span className="canvas-device-size" aria-label="Current canvas size">
+            {getDeviceFrameLabel(currentDevice)}
+          </span>
       </div>
 
       <div className="canvas-topbar-right">
@@ -112,15 +126,6 @@ export default function CanvasTopbar({ onAddSection }: Props) {
         >
           <Download size={16} />
           <span>Export</span>
-        </button>
-
-        <button
-          type="button"
-          className="canvas-topbar-btn primary"
-          onClick={() => onAddSection?.()}
-        >
-          <Plus size={16} />
-          <span>Add section</span>
         </button>
       </div>
     </div>

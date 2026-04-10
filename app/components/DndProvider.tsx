@@ -10,10 +10,12 @@ import {
 import { useEffect, useState } from "react";
 import { useBuilder } from "@/app/lib/useBuilder";
 
-type DropInfo = {
-  sectionId: string;
-  index: number;
-} | null;
+type DropInfo =
+  | {
+      sectionId: string;
+      index: number;
+    }
+  | null;
 
 export default function DndProvider({
   children,
@@ -23,7 +25,7 @@ export default function DndProvider({
   const [mounted, setMounted] = useState(false);
   const [dropInfo, setDropInfo] = useState<DropInfo>(null);
 
-  const { sections, addBlock, moveBlock } = useBuilder();
+  const { sections, addBlock, moveBlock } = useBuilder() as any;
 
   useEffect(() => {
     setMounted(true);
@@ -49,10 +51,9 @@ export default function DndProvider({
 
     const overId = String(over.id);
 
-    // ✅ Drop on empty section
     if (overId.startsWith("section-drop-")) {
       const sectionId = overId.replace("section-drop-", "");
-      const section = sections.find((s: any) => s.id === sectionId);
+      const section = (sections || []).find((s: any) => s.id === sectionId);
 
       setDropInfo({
         sectionId,
@@ -61,7 +62,6 @@ export default function DndProvider({
       return;
     }
 
-    // ✅ Drop between blocks
     for (const section of sections || []) {
       const blockIndex = (section.blocks || []).findIndex(
         (block: any) => String(block.id) === overId
@@ -93,14 +93,12 @@ export default function DndProvider({
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    // ✅ HANDLE SIDEBAR (website + product)
     if ((source === "sidebar" || source === "product-sidebar") && type) {
       addBlock(dropInfo.sectionId, type, dropInfo.index);
       setDropInfo(null);
       return;
     }
 
-    // ✅ HANDLE CANVAS DRAG (reorder)
     if (source === "canvas") {
       moveBlock(dropInfo.sectionId, activeId, overId);
       setDropInfo(null);

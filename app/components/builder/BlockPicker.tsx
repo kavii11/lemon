@@ -1,88 +1,153 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
+import { componentLibrary } from "../../lib/componentLibrary";
+import { productLibrary } from "../productLibrary";
+import {useBuilder} from "@/app/lib/useBuilder";
 
-const groups = [
-  {
-    title: "Sections",
-    items: ["hero", "navbar", "features", "pricing", "testimonials", "cta", "footer"],
-  },
-  {
-    title: "Layout",
-    items: ["section", "container", "grid", "2-columns", "3-columns", "stack"],
-  },
-  {
-    title: "Content",
-    items: ["heading", "text", "paragraph", "image", "video", "list"],
-  },
-  {
-    title: "Commerce",
-    items: ["product", "product-list", "cart", "checkout"],
-  },
-  {
-    title: "Blog",
-    items: ["blog-list", "blog-post", "image-block"],
-  },
-];
+type PickerMode = "all" | "layoutOnly" | "fieldOnly";
 
-function pretty(value: string) {
-  return value.replace(/-/g, " ");
-}
+type Props = {
+  sectionId: string;
+  onPick: (sectionId: string, type: string) => void;
+  onClose: () => void;
+  mode?: PickerMode;
+};
+
+const FIELD_BLOCK_TYPES = new Set([
+  "text",
+  "heading",
+  "paragraph",
+  "button",
+  "submit",
+  "badge",
+  "image",
+  "image-block",
+  "video",
+  "list",
+  "divider",
+  "spacer",
+  "quote",
+  "card",
+  "stats",
+  "input",
+  "textarea",
+  "select",
+  "checkbox",
+  "product",
+  "product-list",
+  "cart",
+  "checkout",
+  "blog-list",
+  "blog-post",
+  "faq",
+  "table",
+]);
 
 export default function BlockPicker({
   sectionId,
   onPick,
   onClose,
-}: {
-  sectionId: string;
-  onPick: (sectionId: string, type: string) => void;
-  onClose: () => void;
-}){
+  mode = "all",
+}: Props) {
+  const builderType = useBuilder((s: any) => s.builderType);
+  const sections = useBuilder((s: any) => s.sections as any[]);
+
+  const hasProductLayout =
+    builderType === "product" &&
+    sections.some((section) => Array.isArray(section.blocks) && section.blocks.length > 0);
+
+  const productLayoutGroup = productLibrary?.[0];
+
+  const fieldGroups =
+    componentLibrary?.filter((group: any) =>
+      (group.variants || []).some(
+        (variant: any) => variant.kind === "block" && FIELD_BLOCK_TYPES.has(group.type)
+      )
+    ) || [];
+
   return (
     <div className="block-picker">
-      <div className="block-picker-header">
-        <h3>Add section</h3>
+      <div className="block-picker-head">
+        <div>
+          <div className="block-picker-kicker">
+            {mode === "layoutOnly" ? "Choose layout" : "Add field"}
+          </div>
+          <h3 className="block-picker-title">
+            {mode === "layoutOnly"
+              ? "Select product layout"
+              : mode === "fieldOnly"
+              ? "Select field"
+              : "Component library"}
+          </h3>
+        </div>
+
         <button
           type="button"
           className="block-picker-close"
           onClick={onClose}
-          aria-label="Close block picker"
+          aria-label="Close picker"
         >
-          <X size={16} />
+          <X size={18} />
         </button>
       </div>
 
-      <div style={{ display: "grid", gap: 14 }}>
-        {groups.map((group) => (
-          <div key={group.title}>
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "#64748b",
-                marginBottom: 10,
-              }}
-            >
-              {group.title}
+      <div className="block-picker-body">
+        {builderType === "product" &&
+          mode === "layoutOnly" &&
+          !hasProductLayout &&
+          productLayoutGroup && (
+            <div className="block-picker-group">
+              <div className="block-picker-group-title">{productLayoutGroup.label}</div>
+
+              <div className="block-picker-grid">
+                {productLayoutGroup.variants.map((variant: any) => (
+                  <button
+                    key={variant.id}
+                    type="button"
+                    className="block-picker-card"
+                    onClick={() => onPick(sectionId, variant.id)}
+                  >
+                    <div className="block-picker-card-icon">
+                      <Plus size={16} />
+                    </div>
+                    <div className="block-picker-card-copy">
+                      <strong>{variant.name}</strong>
+                      <span>{variant.description}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="block-picker-grid">
-              {group.items.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className="block-picker-card"
-onClick={() => onPick(sectionId, item)}                >
-                  <strong style={{ textTransform: "capitalize" }}>{pretty(item)}</strong>
-                  <span style={{ fontSize: 13, color: "#64748b", textAlign: "left" }}>
-                    Add a {pretty(item)} block to the page.
-                  </span>
-                </button>
-              ))}
+          )}
+
+        {mode !== "layoutOnly" &&
+          fieldGroups.map((group: any) => (
+            <div key={group.type} className="block-picker-group">
+              <div className="block-picker-group-title">{group.label}</div>
+
+              <div className="block-picker-grid">
+                {group.variants
+                  .filter((variant: any) => variant.kind === "block")
+                  .map((variant: any) => (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      className="block-picker-card"
+                      onClick={() => onPick(sectionId, group.type)}
+                    >
+                      <div className="block-picker-card-icon">
+                        <Plus size={16} />
+                      </div>
+                      <div className="block-picker-card-copy">
+                        <strong>{variant.name}</strong>
+                        <span>{variant.description}</span>
+                      </div>
+                    </button>
+                  ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
       </div>
     </div>
   );

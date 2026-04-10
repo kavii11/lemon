@@ -93,8 +93,6 @@ export type BlockProps = {
     title: string;
     excerpt: string;
   }[];
-  images?: string[];
-  compareAt?: string;
   style?: {
     desktop?: Style;
     tablet?: Style;
@@ -116,1120 +114,808 @@ export type Section = {
   blocks: Block[];
 };
 
-type BuilderMode = "website" | "product";
-
-type SelectedBlock = {
-  sectionId: string;
-  blockId: string;
-} | null;
-
 type BuilderState = {
-  builderType: BuilderMode;
-  setBuilderType: (type: BuilderMode) => void;
+  builderType: "website" | "product";
+  setBuilderType: (type: "website" | "product") => void;
 
   sectionsWebsite: Section[];
   sectionsProduct: Section[];
-
   sections: Section[];
   history: Section[][];
   future: Section[][];
   currentDevice: Device;
-  selectedBlock: SelectedBlock;
+  selectedBlock: { sectionId: string; blockId: string } | null;
 
   setDevice: (device: Device) => void;
   setSelectedBlock: (sectionId: string, blockId: string) => void;
   clearSelectedBlock: () => void;
 
   addSection: (type: string, index?: number) => void;
-  removeSection: (sectionId: string) => void;
-
   addBlock: (sectionId: string, type: string, index?: number) => void;
+  addVariantSection: (variant: any) => void;
   moveBlock: (sectionId: string, activeId: string, overId: string) => void;
-
-  updateBlock: (
-    sectionId: string,
-    blockId: string,
-    updates: Partial<Block>
-  ) => void;
-
-  updateBlockProps: (
-    sectionId: string,
-    blockId: string,
-    updates: Partial<BlockProps>
-  ) => void;
-
+  updateBlock: (sectionId: string, blockId: string, updates: Partial<Style>) => void;
+  updateBlockProps: (sectionId: string, blockId: string, updates: Partial<BlockProps>) => void;
   updateBlockStyle: (
     sectionId: string,
     blockId: string,
+    device: Device,
     updates: Partial<Style>
   ) => void;
-
   resizeBlock: (
     sectionId: string,
     blockId: string,
     direction: "left" | "right" | "top" | "bottom",
     delta: number
   ) => void;
-
   duplicateBlock: (sectionId: string, blockId: string) => void;
   removeBlock: (sectionId: string, blockId: string) => void;
-
-  addVariantSection: () => void;
-
   undo: () => void;
   redo: () => void;
-  reset: () => void;
+  exportData: () => any;
 };
 
-const uid = () => Math.random().toString(36).slice(2, 11);
+const uid = () => crypto.randomUUID();
 
-const parseSize = (value?: string, fallback = 0) => {
-  if (!value) return fallback;
-  const num = parseFloat(String(value).replace("px", ""));
-  return Number.isFinite(num) ? num : fallback;
-};
+const cloneSections = (sections: Section[]) =>
+  JSON.parse(JSON.stringify(sections)) as Section[];
 
-const px = (value: number, min = 0) => `${Math.max(min, Math.round(value))}px`;
+const PRODUCT_LAYOUT_VARIANT_IDS = new Set([
+  "standard-product",
+  "centered-product",
+  "product-grid",
+]);
 
-const createStyle = (desktop?: Partial<Style>): BlockProps["style"] => ({
+const baseStyle = (overrides?: Partial<Style>) => ({
   desktop: {
-    padding: "16px",
-    ...desktop,
+    width: "100%",
+    minHeight: "120px",
+    ...overrides,
   },
-  tablet: {},
-  mobile: {},
+  tablet: {
+    width: "100%",
+    minHeight: "120px",
+    ...overrides,
+  },
+  mobile: {
+    width: "100%",
+    minHeight: "120px",
+    ...overrides,
+  },
 });
 
 const createBlock = (type: string): Block => {
-  const id = uid();
+  const commonCardStyle = {
+    padding: "20px",
+    borderRadius: "16px",
+    backgroundColor: "#ffffff",
+    border: "1px solid #e2e8f0",
+  };
 
-  const map: Record<string, Block> = {
+  const blocks: Record<string, Block> = {
     heading: {
-      id,
-      type,
+      id: uid(),
+      type: "heading",
       props: {
-        content: "Write a clear headline",
-        style: createStyle({
-          fontSize: "42px",
+        content: "Build pages visually",
+        style: baseStyle({
+          fontSize: "40px",
           fontWeight: "800",
           lineHeight: "1.1",
-          color: "#111827",
+          minHeight: "88px",
         }),
       },
     },
     text: {
-      id,
-      type,
+      id: uid(),
+      type: "text",
       props: {
-        content: "Add supporting text for this section.",
-        style: createStyle({
+        content: "This is a text block.",
+        style: baseStyle({
           fontSize: "16px",
           lineHeight: "1.7",
-          color: "#475569",
+          minHeight: "100px",
         }),
       },
     },
     paragraph: {
-      id,
-      type,
+      id: uid(),
+      type: "paragraph",
       props: {
-        content: "Add supporting paragraph content here.",
-        style: createStyle({
+        content: "Paragraph block",
+        style: baseStyle({
           fontSize: "16px",
-          lineHeight: "1.7",
-          color: "#475569",
+          lineHeight: "1.8",
+          minHeight: "110px",
         }),
       },
     },
     button: {
-      id,
-      type,
+      id: uid(),
+      type: "button",
       props: {
-        content: "Click here",
-        style: createStyle({
+        content: "Get started",
+        href: "",
+        style: baseStyle({
+          width: "auto",
+          minHeight: "56px",
+          padding: "12px 18px",
           backgroundColor: "#111827",
           color: "#ffffff",
-          padding: "12px 18px",
           borderRadius: "12px",
-          width: "fit-content",
+          fontWeight: "700",
         }),
       },
     },
     submit: {
-      id,
-      type,
+      id: uid(),
+      type: "submit",
       props: {
         content: "Submit",
-        style: createStyle({
-          backgroundColor: "#111827",
-          color: "#ffffff",
+        style: baseStyle({
+          width: "auto",
+          minHeight: "56px",
           padding: "12px 18px",
+          backgroundColor: "#2563eb",
+          color: "#ffffff",
           borderRadius: "12px",
-          width: "fit-content",
+          fontWeight: "700",
         }),
       },
     },
     badge: {
-      id,
-      type,
+      id: uid(),
+      type: "badge",
       props: {
-        content: "New",
-        style: createStyle({
+        content: "Popular",
+        style: baseStyle({
+          width: "auto",
+          minHeight: "42px",
+          padding: "8px 12px",
           backgroundColor: "#fef3c7",
           color: "#92400e",
-          padding: "8px 12px",
           borderRadius: "999px",
-          width: "fit-content",
+          fontWeight: "700",
         }),
       },
     },
     image: {
-      id,
-      type,
+      id: uid(),
+      type: "image",
       props: {
         src: "https://picsum.photos/1200/700",
-        alt: "Image block",
-        style: createStyle({
-          minHeight: "260px",
+        alt: "Builder image",
+        style: baseStyle({
+          minHeight: "240px",
           borderRadius: "16px",
           objectFit: "cover",
         }),
       },
     },
     "image-block": {
-      id,
-      type,
+      id: uid(),
+      type: "image-block",
       props: {
         src: "https://picsum.photos/1200/760",
-        alt: "Image block",
+        alt: "Content image",
         title: "Image title",
-        description: "Short image description",
-        style: createStyle({
-          padding: "0px",
+        description: "Optional supporting image description.",
+        style: baseStyle({
+          minHeight: "280px",
+          borderRadius: "16px",
         }),
       },
     },
     video: {
-      id,
-      type,
+      id: uid(),
+      type: "video",
       props: {
-        title: "Video title",
-        description: "Short video description",
-        poster: "https://picsum.photos/1200/760?grayscale",
-        style: createStyle({
-          padding: "0px",
+        poster: "https://picsum.photos/1200/700?grayscale",
+        title: "Video preview",
+        description: "Add your video embed or poster later.",
+        style: baseStyle({
+          minHeight: "260px",
+          borderRadius: "16px",
         }),
       },
     },
     list: {
-      id,
-      type,
+      id: uid(),
+      type: "list",
       props: {
-        items: ["First item", "Second item", "Third item"],
-        style: createStyle(),
+        items: ["Fast setup", "Responsive controls", "Visual editing"],
+        style: baseStyle({
+          minHeight: "140px",
+        }),
       },
     },
     divider: {
-      id,
-      type,
+      id: uid(),
+      type: "divider",
       props: {
-        style: createStyle({
-          padding: "8px 0px",
+        style: baseStyle({
+          minHeight: "24px",
         }),
-      },
-    },
-    quote: {
-      id,
-      type,
-      props: {
-        content: "A memorable quote goes here.",
-        subtitle: "Author name",
-        style: createStyle({
-          padding: "8px 0px",
-        }),
-      },
-    },
-    card: {
-      id,
-      type,
-      props: {
-        title: "Card title",
-        content: "Card content",
-        style: createStyle({
-          padding: "16px",
-          backgroundColor: "#ffffff",
-          borderRadius: "16px",
-          border: "1px solid #e5e7eb",
-        }),
-      },
-    },
-    stats: {
-      id,
-      type,
-      props: {
-        stats: [
-          { label: "Users", value: "12k" },
-          { label: "Growth", value: "24%" },
-          { label: "Revenue", value: "₹2.4L" },
-        ],
-        style: createStyle(),
-      },
-    },
-    navbar: {
-      id,
-      type,
-      props: {
-        title: "Brand",
-        links: [
-          { label: "Home", href: "#" },
-          { label: "About", href: "#" },
-          { label: "Contact", href: "#" },
-        ],
-        style: createStyle({
-          padding: "16px",
-        }),
-      },
-    },
-    hero: {
-      id,
-      type,
-      props: {
-        badge: "New launch",
-        title: "Build faster with flexible sections",
-        subtitle: "Create responsive pages with blocks you can move, style, and resize.",
-        buttons: [
-          { label: "Get started", href: "#", variant: "primary" },
-          { label: "Learn more", href: "#", variant: "secondary" },
-        ],
-        style: createStyle({
-          padding: "32px",
-          minHeight: "280px",
-        }),
-      },
-    },
-    features: {
-      id,
-      type,
-      props: {
-        title: "Features",
-        columns: [
-          { title: "Fast", content: "Quick setup and editing" },
-          { title: "Flexible", content: "Reusable blocks and layouts" },
-          { title: "Responsive", content: "Device-aware styling" },
-        ],
-        style: createStyle(),
-      },
-    },
-    pricing: {
-      id,
-      type,
-      props: {
-        title: "Pricing",
-        columns: [
-          { title: "Starter", content: "₹499", items: ["1 site", "Basic support"] },
-          { title: "Pro", content: "₹999", items: ["5 sites", "Priority support"] },
-          { title: "Scale", content: "₹1999", items: ["Unlimited", "Team access"] },
-        ],
-        style: createStyle(),
-      },
-    },
-    testimonials: {
-      id,
-      type,
-      props: {
-        title: "What customers say",
-        testimonials: [
-          { quote: "This builder is smooth and fast.", name: "Aman" },
-          { quote: "Editing sections feels easy.", name: "Riya" },
-        ],
-        style: createStyle(),
-      },
-    },
-    cta: {
-      id,
-      type,
-      props: {
-        title: "Ready to start?",
-        subtitle: "Launch your page in minutes.",
-        buttons: [{ label: "Start now", href: "#", variant: "primary" }],
-        style: createStyle({
-          padding: "24px",
-          backgroundColor: "#f8fafc",
-          borderRadius: "16px",
-        }),
-      },
-    },
-    footer: {
-      id,
-      type,
-      props: {
-        title: "Footer",
-        content: "© 2026 Your brand",
-        links: [
-          { label: "Privacy", href: "#" },
-          { label: "Terms", href: "#" },
-        ],
-        style: createStyle({
-          padding: "20px 16px",
-        }),
-      },
-    },
-    input: {
-      id,
-      type,
-      props: {
-        label: "Input label",
-        placeholder: "Enter value",
-        style: createStyle(),
-      },
-    },
-    textarea: {
-      id,
-      type,
-      props: {
-        label: "Message",
-        placeholder: "Write something...",
-        style: createStyle(),
-      },
-    },
-    select: {
-      id,
-      type,
-      props: {
-        label: "Choose option",
-        options: ["Option 1", "Option 2", "Option 3"],
-        style: createStyle(),
-      },
-    },
-    checkbox: {
-      id,
-      type,
-      props: {
-        label: "I agree to terms",
-        checked: false,
-        style: createStyle(),
-      },
-    },
-    product: {
-      id,
-      type,
-      props: {
-        title: "Product title",
-        description: "Short product description",
-        src: "https://picsum.photos/800/500",
-        alt: "Product image",
-        price: "₹999",
-        style: createStyle({
-          padding: "16px",
-          backgroundColor: "#ffffff",
-          borderRadius: "16px",
-          border: "1px solid #e5e7eb",
-        }),
-      },
-    },
-    "product-list": {
-      id,
-      type,
-      props: {
-        title: "Featured products",
-        products: [
-          { title: "Product one", price: "₹999", image: "https://picsum.photos/600/600?1" },
-          { title: "Product two", price: "₹1299", image: "https://picsum.photos/600/600?2" },
-          { title: "Product three", price: "₹899", image: "https://picsum.photos/600/600?3" },
-        ],
-        style: createStyle(),
-      },
-    },
-    cart: {
-      id,
-      type,
-      props: {
-        title: "Cart summary",
-        items: ["Product A × 1", "Product B × 2"],
-        price: "₹2,799",
-        style: createStyle({
-          padding: "16px",
-          backgroundColor: "#ffffff",
-          borderRadius: "16px",
-          border: "1px solid #e5e7eb",
-        }),
-      },
-    },
-    checkout: {
-      id,
-      type,
-      props: {
-        title: "Checkout",
-        subtitle: "Enter payment details",
-        style: createStyle({
-          padding: "16px",
-          backgroundColor: "#ffffff",
-          borderRadius: "16px",
-          border: "1px solid #e5e7eb",
-        }),
-      },
-    },
-    "blog-list": {
-      id,
-      type,
-      props: {
-        title: "Latest posts",
-        posts: [
-          { title: "Post one", excerpt: "Short summary for article one." },
-          { title: "Post two", excerpt: "Short summary for article two." },
-        ],
-        style: createStyle(),
-      },
-    },
-    "blog-post": {
-      id,
-      type,
-      props: {
-        title: "Blog post title",
-        subtitle: "Published April 2026",
-        content: "Write your article content here.",
-        style: createStyle({
-          padding: "16px 0px",
-        }),
-      },
-    },
-    faq: {
-      id,
-      type,
-      props: {
-        title: "Frequently asked questions",
-        faqs: [
-          { question: "What is this?", answer: "This is a flexible content block." },
-          { question: "Can I edit it?", answer: "Yes, all content is editable." },
-        ],
-        style: createStyle(),
-      },
-    },
-    table: {
-      id,
-      type,
-      props: {
-        title: "Table block",
-        columns: [
-          { title: "Name", items: ["A", "B", "C"] },
-          { title: "Role", items: ["Dev", "Design", "PM"] },
-          { title: "Status", items: ["Active", "Active", "Pending"] },
-        ],
-        style: createStyle(),
-      },
-    },
-    "product-title": {
-      id,
-      type,
-      props: {
-        content: "Premium Product Name",
-        style: createStyle({
-          fontSize: "32px",
-          fontWeight: "800",
-          lineHeight: "1.15",
-          color: "#111827",
-        }),
-      },
-    },
-    "product-description": {
-      id,
-      type,
-      props: {
-        content: "Describe the product, material, quality, and delivery promise.",
-        style: createStyle({
-          fontSize: "16px",
-          lineHeight: "1.7",
-          color: "#475569",
-        }),
-      },
-    },
-    "product-image": {
-      id,
-      type,
-      props: {
-        src: "https://picsum.photos/1000/1000?product",
-        alt: "Product image",
-        style: createStyle({
-          minHeight: "320px",
-          borderRadius: "16px",
-          objectFit: "cover",
-        }),
-      },
-    },
-    "product-gallery": {
-      id,
-      type,
-      props: {
-        images: [
-          "https://picsum.photos/900/900?random=21",
-          "https://picsum.photos/900/900?random=22",
-          "https://picsum.photos/900/900?random=23",
-          "https://picsum.photos/900/900?random=24",
-        ],
-        style: createStyle(),
-      },
-    },
-    price: {
-      id,
-      type,
-      props: {
-        price: "₹999",
-        style: createStyle({
-          fontSize: "26px",
-          fontWeight: "800",
-          color: "#111827",
-        }),
-      },
-    },
-    "discount-price": {
-      id,
-      type,
-      props: {
-        price: "₹999",
-        compareAt: "₹1,299",
-        style: createStyle(),
-      },
-    },
-    "add-to-cart": {
-      id,
-      type,
-      props: {
-        content: "Add to cart",
-        style: createStyle({
-          backgroundColor: "#111827",
-          color: "#ffffff",
-          padding: "14px 18px",
-          borderRadius: "12px",
-          width: "100%",
-        }),
-      },
-    },
-    "buy-now": {
-      id,
-      type,
-      props: {
-        content: "Buy now",
-        style: createStyle({
-          backgroundColor: "#f3f4f6",
-          color: "#111827",
-          padding: "14px 18px",
-          borderRadius: "12px",
-          width: "100%",
-          border: "1px solid #d1d5db",
-        }),
-      },
-    },
-    wishlist: {
-      id,
-      type,
-      props: {
-        content: "Save to wishlist",
-        style: createStyle({
-          backgroundColor: "#ffffff",
-          color: "#111827",
-          padding: "12px 16px",
-          borderRadius: "12px",
-          width: "100%",
-          border: "1px solid #e5e7eb",
-        }),
-      },
-    },
-    "quantity-selector": {
-      id,
-      type,
-      props: {
-        label: "Quantity",
-        style: createStyle(),
       },
     },
     spacer: {
-      id,
-      type,
+      id: uid(),
+      type: "spacer",
       isSpacer: true,
       props: {
-        style: createStyle({
+        content: "Spacer",
+        style: baseStyle({
           minHeight: "60px",
         }),
       },
     },
-  };
-
-  return map[type] || {
-    id,
-    type,
-    props: {
-      content: `${type} block`,
-      style: createStyle(),
+    quote: {
+      id: uid(),
+      type: "quote",
+      props: {
+        content: "Great design systems create speed without sacrificing control.",
+        subtitle: "Product Team",
+        style: baseStyle({
+          minHeight: "160px",
+          padding: "24px",
+          backgroundColor: "#ffffff",
+          borderRadius: "16px",
+          border: "1px solid #e2e8f0",
+        }),
+      },
+    },
+    card: {
+      id: uid(),
+      type: "card",
+      props: {
+        title: "Feature card",
+        content: "Use cards for features, summaries, and promo blocks.",
+        style: baseStyle({
+          minHeight: "190px",
+          ...commonCardStyle,
+          boxShadow: "0 10px 25px rgba(15,23,42,0.05)",
+        }),
+      },
+    },
+    stats: {
+      id: uid(),
+      type: "stats",
+      props: {
+        stats: [
+          { label: "Users", value: "12K" },
+          { label: "Revenue", value: "84K" },
+        ],
+        style: baseStyle({
+          minHeight: "180px",
+          ...commonCardStyle,
+        }),
+      },
+    },
+    input: {
+      id: uid(),
+      type: "input",
+      props: {
+        label: "Email address",
+        placeholder: "name@example.com",
+        style: baseStyle({
+          minHeight: "86px",
+        }),
+      },
+    },
+    textarea: {
+      id: uid(),
+      type: "textarea",
+      props: {
+        label: "Message",
+        placeholder: "Write your message...",
+        style: baseStyle({
+          minHeight: "140px",
+        }),
+      },
+    },
+    select: {
+      id: uid(),
+      type: "select",
+      props: {
+        label: "Select plan",
+        options: ["Starter", "Pro", "Scale"],
+        style: baseStyle({
+          minHeight: "86px",
+        }),
+      },
+    },
+    checkbox: {
+      id: uid(),
+      type: "checkbox",
+      props: {
+        label: "I agree to the terms",
+        checked: false,
+        style: baseStyle({
+          minHeight: "56px",
+        }),
+      },
+    },
+    product: {
+      id: uid(),
+      type: "product",
+      props: {
+        title: "Product name",
+        price: "49",
+        src: "https://picsum.photos/800/500",
+        alt: "Product image",
+        description: "Short product description with key value points.",
+        style: baseStyle({
+          minHeight: "300px",
+          ...commonCardStyle,
+        }),
+      },
+    },
+    "product-list": {
+      id: uid(),
+      type: "product-list",
+      props: {
+        title: "Featured products",
+        products: [
+          { title: "Basic Tee", price: "29", image: "https://picsum.photos/400/280?1" },
+          { title: "Pro Hoodie", price: "59", image: "https://picsum.photos/400/280?2" },
+        ],
+        style: baseStyle({
+          minHeight: "340px",
+          ...commonCardStyle,
+        }),
+      },
+    },
+    table: {
+      id: uid(),
+      type: "table",
+      props: {
+        title: "Comparison table",
+        columns: [
+          { title: "Plan", items: ["Starter", "Pro"] },
+          { title: "Price", items: ["19", "49"] },
+        ],
+        style: baseStyle({
+          minHeight: "220px",
+          ...commonCardStyle,
+        }),
+      },
     },
   };
+
+  return (
+    blocks[type] || {
+      id: uid(),
+      type,
+      props: {
+        content: `${type} block`,
+        style: baseStyle({ minHeight: "120px" }),
+      },
+    }
+  );
 };
 
-const createSection = (type: string): Section => {
-  const id = uid();
-
-  const sectionMap: Record<string, Section> = {
-    hero: {
-      id,
-      type,
-      blocks: [createBlock("hero")],
-    },
-    content: {
-      id,
-      type,
-      blocks: [createBlock("heading"), createBlock("text")],
-    },
-    features: {
-      id,
-      type,
-      blocks: [createBlock("features")],
-    },
-    pricing: {
-      id,
-      type,
-      blocks: [createBlock("pricing")],
-    },
-    testimonials: {
-      id,
-      type,
-      blocks: [createBlock("testimonials")],
-    },
-    faq: {
-      id,
-      type,
-      blocks: [createBlock("faq")],
-    },
-    footer: {
-      id,
-      type,
-      blocks: [createBlock("footer")],
-    },
-    productHero: {
-      id,
-      type,
-      blocks: [createBlock("product-gallery"), createBlock("product-title"), createBlock("discount-price"), createBlock("product-description"), createBlock("quantity-selector"), createBlock("add-to-cart"), createBlock("buy-now"), createBlock("wishlist")],
-    },
-    products: {
-      id,
-      type,
-      blocks: [createBlock("product-list")],
-    },
-    blog: {
-      id,
-      type,
-      blocks: [createBlock("blog-list")],
-    },
-    form: {
-      id,
-      type,
-      blocks: [createBlock("input"), createBlock("textarea"), createBlock("submit")],
-    },
-  };
-
-  return sectionMap[type] || {
-    id,
-    type,
-    blocks: [],
-  };
-};
-
-const defaultWebsiteSections: Section[] = [
-  createSection("hero"),
-  createSection("features"),
-  createSection("footer"),
-];
-
-const defaultProductSections: Section[] = [
-  createSection("productHero"),
-  createSection("faq"),
-];
-
-const cloneSections = (sections: Section[]) =>
-  JSON.parse(JSON.stringify(sections)) as Section[];
-
-const getSectionsForType = (
-  type: BuilderMode,
-  website: Section[],
-  product: Section[]
-) => (type === "product" ? product : website);
-
-const setSectionsForType = (
-  state: BuilderState,
-  type: BuilderMode,
-  sections: Section[]
-) => {
-  const cloned = cloneSections(sections);
-
-  if (type === "product") {
-    return {
-      ...state,
-      sectionsProduct: cloned,
-      sections: cloned,
-    };
-  }
-
-  return {
-    ...state,
-    sectionsWebsite: cloned,
-    sections: cloned,
-  };
-};
-
-const pushHistory = (state: BuilderState, current: Section[]) => ({
-  history: [...state.history, cloneSections(current)],
-  future: [],
+const createSection = (type: string): Section => ({
+  id: uid(),
+  type,
+  blocks: [],
 });
 
-const mutateActiveSections = (
-  state: BuilderState,
-  recipe: (sections: Section[]) => Section[]
-) => {
-  const current = getSectionsForType(
-    state.builderType,
-    state.sectionsWebsite,
-    state.sectionsProduct
-  );
+const initialWebsiteSections: Section[] = [
+  {
+    id: uid(),
+    type: "section",
+    blocks: [createBlock("heading"), createBlock("text"), createBlock("button")],
+  },
+];
 
-  const next = recipe(cloneSections(current));
+const initialProductSections: Section[] = [
+  {
+    id: uid(),
+    type: "section",
+    blocks: [],
+  },
+];
+
+const pushHistory = (state: BuilderState) => {
+  const currentSections =
+    state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
 
   return {
-    ...setSectionsForType(state, state.builderType, next),
-    ...pushHistory(state, current),
+    history: [...state.history, cloneSections(currentSections)],
+    future: [],
   };
 };
 
 export const useBuilder = create<BuilderState>((set, get) => ({
   builderType: "website",
-  sectionsWebsite: cloneSections(defaultWebsiteSections),
-  sectionsProduct: cloneSections(defaultProductSections),
-  sections: cloneSections(defaultWebsiteSections),
+  sectionsWebsite: initialWebsiteSections,
+  sectionsProduct: initialProductSections,
+  sections: initialWebsiteSections,
   history: [],
   future: [],
   currentDevice: "desktop",
   selectedBlock: null,
 
   setBuilderType: (type) =>
-    set((state) => {
-      const sections =
-        type === "product" ? state.sectionsProduct : state.sectionsWebsite;
-
-      return {
-        builderType: type,
-        sections: cloneSections(sections),
-        selectedBlock: null,
-      };
-    }),
+    set((state) => ({
+      builderType: type,
+      sections: type === "website" ? state.sectionsWebsite : state.sectionsProduct,
+    })),
 
   setDevice: (device) => set({ currentDevice: device }),
 
-  setSelectedBlock: (sectionId, blockId) =>
-    set({
-      selectedBlock: { sectionId, blockId },
-    }),
+  setSelectedBlock: (sectionId, blockId) => set({ selectedBlock: { sectionId, blockId } }),
 
   clearSelectedBlock: () => set({ selectedBlock: null }),
 
   addSection: (type, index) =>
-    set((state) =>
-      mutateActiveSections(state, (sections) => {
-        const newSection = createSection(type);
+    set((state) => {
+      const currentSections =
+        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
 
-        if (typeof index === "number" && index >= 0 && index <= sections.length) {
-          sections.splice(index, 0, newSection);
-        } else {
-          sections.push(newSection);
-        }
+      const next = cloneSections(currentSections);
+      const section = createSection(type);
+      const insertAt = typeof index === "number" ? index : next.length;
+      next.splice(insertAt, 0, section);
 
-        return sections;
-      })
-    ),
+      return {
+        sections: next,
+        sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+        selectedBlock: null,
+        ...pushHistory(state),
+      };
+    }),
 
-  removeSection: (sectionId) =>
-    set((state) =>
-      mutateActiveSections(state, (sections) =>
-        sections.filter((section) => section.id !== sectionId)
-      )
-    ),
+  addVariantSection: (variant: any) =>
+    set((state) => {
+      const currentSections =
+        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
+
+      if (state.builderType !== "product") return state;
+
+      const next = cloneSections(currentSections);
+
+      if (next.some((section) => section.blocks?.length > 0)) {
+        return state;
+      }
+
+      if (variant?.kind === "multi-section" && Array.isArray(variant.sections)) {
+        const newSections = variant.sections.map((section: any) => ({
+          id: uid(),
+          type:
+            variant.id === "standard-product"
+              ? "product-standard"
+              : variant.id === "centered-product"
+              ? "product-centered"
+              : variant.id === "product-grid"
+              ? "product-grid"
+              : section.type || "section",
+          blocks: (section.blocks || []).map((b: any) => {
+            const base = createBlock(b.type);
+            return {
+              ...base,
+              props: {
+                ...base.props,
+                ...(b.props || {}),
+              },
+            };
+          }),
+        }));
+
+        return {
+          sections: newSections,
+          sectionsWebsite: state.sectionsWebsite,
+          sectionsProduct: newSections,
+          sections: newSections,
+          selectedBlock: null,
+          ...pushHistory(state),
+        };
+      }
+
+      return state;
+    }),
 
   addBlock: (sectionId, type, index) =>
-    set((state) =>
-      mutateActiveSections(state, (sections) => {
-        return sections.map((section) => {
-          if (section.id !== sectionId) return section;
+    set((state) => {
+      const currentSections =
+        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
 
-          const nextBlocks = [...section.blocks];
-          const newBlock = createBlock(type);
-
-          if (typeof index === "number" && index >= 0 && index <= nextBlocks.length) {
-            nextBlocks.splice(index, 0, newBlock);
-          } else {
-            nextBlocks.push(newBlock);
-          }
-
-          return {
-            ...section,
-            blocks: nextBlocks,
-          };
-        });
-      })
-    ),
-
-  moveBlock: (sectionId, activeId, overId) =>
-    set((state) =>
-      mutateActiveSections(state, (sections) =>
-        sections.map((section) => {
-          if (section.id !== sectionId) return section;
-
-          const oldIndex = section.blocks.findIndex((b) => b.id === activeId);
-          const newIndex = section.blocks.findIndex((b) => b.id === overId);
-
-          if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
-            return section;
-          }
-
-          const nextBlocks = [...section.blocks];
-          const [moved] = nextBlocks.splice(oldIndex, 1);
-          nextBlocks.splice(newIndex, 0, moved);
-
-          return {
-            ...section,
-            blocks: nextBlocks,
-          };
-        })
-      )
-    ),
-
-  updateBlock: (sectionId, blockId, updates) =>
-    set((state) =>
-      mutateActiveSections(state, (sections) =>
-        sections.map((section) => {
-          if (section.id !== sectionId) return section;
-
-          return {
-            ...section,
-            blocks: section.blocks.map((block) =>
-              block.id === blockId
-                ? {
-                    ...block,
-                    ...updates,
-                    props: {
-                      ...block.props,
-                      ...(updates.props || {}),
-                    },
-                  }
-                : block
-            ),
-          };
-        })
-      )
-    ),
-
-  updateBlockProps: (sectionId, blockId, updates) =>
-    set((state) =>
-      mutateActiveSections(state, (sections) =>
-        sections.map((section) => {
-          if (section.id !== sectionId) return section;
-
-          return {
-            ...section,
-            blocks: section.blocks.map((block) =>
-              block.id === blockId
-                ? {
-                    ...block,
-                    props: {
-                      ...block.props,
-                      ...updates,
-                    },
-                  }
-                : block
-            ),
-          };
-        })
-      )
-    ),
-
-  updateBlockStyle: (sectionId, blockId, updates) =>
-    set((state) =>
-      mutateActiveSections(state, (sections) =>
-        sections.map((section) => {
-          if (section.id !== sectionId) return section;
-
-          return {
-            ...section,
-            blocks: section.blocks.map((block) => {
-              if (block.id !== blockId) return block;
-
-              const existingStyle = block.props.style || {};
-              const deviceStyle = existingStyle[state.currentDevice] || {};
-
-              return {
-                ...block,
-                props: {
-                  ...block.props,
-                  style: {
-                    ...existingStyle,
-                    [state.currentDevice]: {
-                      ...deviceStyle,
-                      ...updates,
-                    },
-                  },
-                },
-              };
-            }),
-          };
-        })
-      )
-    ),
-
-  resizeBlock: (sectionId, blockId, direction, delta) =>
-    set((state) =>
-      mutateActiveSections(state, (sections) =>
-        sections.map((section) => {
-          if (section.id !== sectionId) return section;
-
-          return {
-            ...section,
-            blocks: section.blocks.map((block) => {
-              if (block.id !== blockId) return block;
-
-              const blockStyle = block.props.style || {};
-              const current = blockStyle[state.currentDevice] || {};
-
-              const width = parseSize(current.width, 0);
-              const minHeight = parseSize(current.minHeight, 120);
-              const height = parseSize(current.height, 0);
-
-              let next: Partial<Style> = {};
-
-              if (direction === "left" || direction === "right") {
-                const baseWidth = width || 320;
-                next.width = px(baseWidth + delta, 80);
-              }
-
-              if (direction === "top" || direction === "bottom") {
-                if (height) {
-                  next.height = px(height + delta, 40);
-                } else {
-                  next.minHeight = px(minHeight + delta, 40);
-                }
-              }
-
-              return {
-                ...block,
-                props: {
-                  ...block.props,
-                  style: {
-                    ...blockStyle,
-                    [state.currentDevice]: {
-                      ...current,
-                      ...next,
-                    },
-                  },
-                },
-              };
-            }),
-          };
-        })
-      )
-    ),
-
-  duplicateBlock: (sectionId, blockId) =>
-    set((state) =>
-      mutateActiveSections(state, (sections) =>
-        sections.map((section) => {
-          if (section.id !== sectionId) return section;
-
-          const index = section.blocks.findIndex((b) => b.id === blockId);
-          if (index === -1) return section;
-
-          const original = section.blocks[index];
-          const copy: Block = {
-            ...cloneSections([{ id: "x", type: "x", blocks: [original] }])[0].blocks[0],
-            id: uid(),
-          };
-
-          const nextBlocks = [...section.blocks];
-          nextBlocks.splice(index + 1, 0, copy);
-
-          return {
-            ...section,
-            blocks: nextBlocks,
-          };
-        })
-      )
-    ),
-
-  removeBlock: (sectionId, blockId) =>
-    set((state) =>
-      mutateActiveSections(state, (sections) => {
-        const nextSections = sections.map((section) => {
-          if (section.id !== sectionId) return section;
-
-          return {
-            ...section,
-            blocks: section.blocks.filter((block) => block.id !== blockId),
-          };
-        });
-
-        return nextSections;
-      })
-    ),
-
-  addVariantSection: () =>
-    set((state) =>
-      mutateActiveSections(state, (sections) => {
-        const variant: Section = {
-          id: uid(),
-          type: state.builderType === "product" ? "productVariant" : "variant",
-          blocks:
-            state.builderType === "product"
-              ? [
-                  createBlock("product-image"),
-                  createBlock("product-title"),
-                  createBlock("discount-price"),
-                  createBlock("quantity-selector"),
-                  createBlock("add-to-cart"),
-                ]
-              : [createBlock("heading"), createBlock("text"), createBlock("button")],
+      if (
+        state.builderType === "product" &&
+        PRODUCT_LAYOUT_VARIANT_IDS.has(type)
+      ) {
+        const variantMap: Record<string, any> = {
+          "standard-product": {
+            id: "standard-product",
+            kind: "multi-section",
+            sections: [
+              {
+                type: "product-standard",
+                blocks: [
+                  { type: "image" },
+                  { type: "heading", props: { content: "Product Name" } },
+                  { type: "text", props: { content: "₹999" } },
+                  { type: "button", props: { content: "Add to Cart" } },
+                ],
+              },
+            ],
+          },
+          "centered-product": {
+            id: "centered-product",
+            kind: "multi-section",
+            sections: [
+              {
+                type: "product-centered",
+                blocks: [
+                  { type: "image" },
+                  { type: "heading", props: { content: "Minimal Product" } },
+                  { type: "text", props: { content: "₹799" } },
+                  { type: "button", props: { content: "Buy Now" } },
+                ],
+              },
+            ],
+          },
+          "product-grid": {
+            id: "product-grid",
+            kind: "multi-section",
+            sections: [
+              {
+                type: "product-grid",
+                blocks: [
+                  { type: "heading", props: { content: "Our Products" } },
+                  { type: "product-list" },
+                ],
+              },
+            ],
+          },
         };
 
-        sections.push(variant);
-        return sections;
-      })
-    ),
+        return get().addVariantSection(variantMap[type]), state;
+      }
+
+      const next = cloneSections(currentSections);
+      const section = next.find((item) => item.id === sectionId);
+      if (!section) return state;
+
+      const block = createBlock(type);
+      const insertAt =
+        typeof index === "number"
+          ? Math.max(0, Math.min(index, section.blocks.length))
+          : section.blocks.length;
+
+      section.blocks.splice(insertAt, 0, block);
+
+      return {
+        sections: next,
+        sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+        selectedBlock: { sectionId, blockId: block.id },
+        ...pushHistory(state),
+      };
+    }),
+
+  moveBlock: (sectionId, activeId, overId) =>
+    set((state) => {
+      const currentSections =
+        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
+
+      const next = cloneSections(currentSections);
+
+      let sourceSectionIndex = -1;
+      let sourceBlockIndex = -1;
+
+      for (let i = 0; i < next.length; i++) {
+        const foundIndex = next[i].blocks.findIndex((block) => block.id === activeId);
+        if (foundIndex !== -1) {
+          sourceSectionIndex = i;
+          sourceBlockIndex = foundIndex;
+          break;
+        }
+      }
+
+      if (sourceSectionIndex === -1 || sourceBlockIndex === -1) return state;
+
+      const sourceSection = next[sourceSectionIndex];
+      const [movedBlock] = sourceSection.blocks.splice(sourceBlockIndex, 1);
+
+      const targetSection = next.find((section) => section.id === sectionId);
+      if (!targetSection) return state;
+
+      let targetIndex = targetSection.blocks.findIndex((block) => block.id === overId);
+      if (targetIndex === -1) targetIndex = targetSection.blocks.length;
+
+      if (sourceSection.id === targetSection.id && sourceBlockIndex < targetIndex) {
+        targetIndex -= 1;
+      }
+
+      targetSection.blocks.splice(targetIndex, 0, movedBlock);
+
+      return {
+        sections: next,
+        sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+        selectedBlock: { sectionId: targetSection.id, blockId: movedBlock.id },
+        ...pushHistory(state),
+      };
+    }),
+
+  updateBlock: (sectionId, blockId, updates) =>
+    set((state) => {
+      const currentSections =
+        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
+
+      const next = cloneSections(currentSections);
+      const section = next.find((s) => s.id === sectionId);
+      const block = section?.blocks.find((b) => b.id === blockId);
+      if (!block) return state;
+
+      const currentDevice = state.currentDevice;
+      const currentStyle = block.props.style?.[currentDevice] || {};
+
+      block.props.style = block.props.style || baseStyle();
+      block.props.style[currentDevice] = {
+        ...currentStyle,
+        ...updates,
+      };
+
+      return {
+        sections: next,
+        sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+        ...pushHistory(state),
+      };
+    }),
+
+  updateBlockProps: (sectionId, blockId, updates) =>
+    set((state) => {
+      const currentSections =
+        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
+
+      const next = cloneSections(currentSections);
+      const section = next.find((s) => s.id === sectionId);
+      const block = section?.blocks.find((b) => b.id === blockId);
+      if (!block) return state;
+
+      block.props = {
+        ...block.props,
+        ...updates,
+      };
+
+      return {
+        sections: next,
+        sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+        ...pushHistory(state),
+      };
+    }),
+
+  updateBlockStyle: (sectionId, blockId, device, updates) =>
+    set((state) => {
+      const currentSections =
+        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
+
+      const next = cloneSections(currentSections);
+      const section = next.find((s) => s.id === sectionId);
+      const block = section?.blocks.find((b) => b.id === blockId);
+      if (!block) return state;
+
+      block.props.style = block.props.style || baseStyle();
+      block.props.style[device] = {
+        ...(block.props.style[device] || {}),
+        ...updates,
+      };
+
+      return {
+        sections: next,
+        sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+        ...pushHistory(state),
+      };
+    }),
+
+  resizeBlock: (sectionId, blockId, direction, delta) =>
+    set((state) => {
+      const currentSections =
+        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
+
+      const next = cloneSections(currentSections);
+      const section = next.find((s) => s.id === sectionId);
+      const block = section?.blocks.find((b) => b.id === blockId);
+      if (!block) return state;
+
+      const device = state.currentDevice;
+      block.props.style = block.props.style || baseStyle();
+      const style = block.props.style[device] || {};
+
+      const currentWidth = parseInt(String(style.width || "100").replace("%", ""), 10);
+      const currentMinHeight = parseInt(String(style.minHeight || "120").replace("px", ""), 10);
+
+      if (direction === "left" || direction === "right") {
+        const nextWidth = Math.max(20, Math.min(100, currentWidth + delta));
+        block.props.style[device] = {
+          ...style,
+          width: `${nextWidth}%`,
+        };
+      }
+
+      if (direction === "top" || direction === "bottom") {
+        const nextMinHeight = Math.max(48, Math.min(1200, currentMinHeight + delta * 4));
+        block.props.style[device] = {
+          ...style,
+          minHeight: `${nextMinHeight}px`,
+        };
+      }
+
+      return {
+        sections: next,
+        sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+      };
+    }),
+
+  duplicateBlock: (sectionId, blockId) =>
+    set((state) => {
+      const currentSections =
+        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
+
+      const next = cloneSections(currentSections);
+      const section = next.find((s) => s.id === sectionId);
+      if (!section) return state;
+
+      const index = section.blocks.findIndex((b) => b.id === blockId);
+      if (index === -1) return state;
+
+      const copy = JSON.parse(JSON.stringify(section.blocks[index])) as Block;
+      copy.id = uid();
+      section.blocks.splice(index + 1, 0, copy);
+
+      return {
+        sections: next,
+        sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+        selectedBlock: { sectionId, blockId: copy.id },
+        ...pushHistory(state),
+      };
+    }),
+
+  removeBlock: (sectionId, blockId) =>
+    set((state) => {
+      const currentSections =
+        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
+
+      const next = cloneSections(currentSections);
+      const section = next.find((s) => s.id === sectionId);
+      if (!section) return state;
+
+      section.blocks = section.blocks.filter((b) => b.id !== blockId);
+
+      return {
+        sections: next,
+        sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+        selectedBlock: state.selectedBlock?.blockId === blockId ? null : state.selectedBlock,
+        ...pushHistory(state),
+      };
+    }),
 
   undo: () =>
     set((state) => {
       if (!state.history.length) return state;
 
-      const current = getSectionsForType(
-        state.builderType,
-        state.sectionsWebsite,
-        state.sectionsProduct
-      );
-
       const previous = state.history[state.history.length - 1];
-      const nextHistory = state.history.slice(0, -1);
-
-      const base = {
-        history: nextHistory,
-        future: [...state.future, cloneSections(current)],
-        selectedBlock: null,
-      };
-
-      if (state.builderType === "product") {
-        return {
-          ...state,
-          ...base,
-          sectionsProduct: cloneSections(previous),
-          sections: cloneSections(previous),
-        };
-      }
 
       return {
-        ...state,
-        ...base,
-        sectionsWebsite: cloneSections(previous),
-        sections: cloneSections(previous),
+        sections: previous,
+        sectionsWebsite: state.builderType === "website" ? previous : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? previous : state.sectionsProduct,
+        history: state.history.slice(0, -1),
+        future: [
+          cloneSections(
+            state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct
+          ),
+          ...state.future,
+        ],
       };
     }),
 
@@ -1237,51 +923,31 @@ export const useBuilder = create<BuilderState>((set, get) => ({
     set((state) => {
       if (!state.future.length) return state;
 
-      const current = getSectionsForType(
-        state.builderType,
-        state.sectionsWebsite,
-        state.sectionsProduct
-      );
-
-      const next = state.future[state.future.length - 1];
-      const nextFuture = state.future.slice(0, -1);
-
-      const base = {
-        history: [...state.history, cloneSections(current)],
-        future: nextFuture,
-        selectedBlock: null,
-      };
-
-      if (state.builderType === "product") {
-        return {
-          ...state,
-          ...base,
-          sectionsProduct: cloneSections(next),
-          sections: cloneSections(next),
-        };
-      }
+      const nextFuture = state.future[0];
 
       return {
-        ...state,
-        ...base,
-        sectionsWebsite: cloneSections(next),
-        sections: cloneSections(next),
+        sections: nextFuture,
+        sectionsWebsite: state.builderType === "website" ? nextFuture : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? nextFuture : state.sectionsProduct,
+        history: [
+          ...state.history,
+          cloneSections(
+            state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct
+          ),
+        ],
+        future: state.future.slice(1),
       };
     }),
 
-  reset: () =>
-    set((state) => {
-      const website = cloneSections(defaultWebsiteSections);
-      const product = cloneSections(defaultProductSections);
-      const active = state.builderType === "product" ? product : website;
+  exportData: () => {
+    const state = get();
+    const currentSections =
+      state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
 
-      return {
-        sectionsWebsite: website,
-        sectionsProduct: product,
-        sections: active,
-        history: [],
-        future: [],
-        selectedBlock: null,
-      };
-    }),
+    return {
+      builderType: state.builderType,
+      currentDevice: state.currentDevice,
+      sections: currentSections,
+    };
+  },
 }));
