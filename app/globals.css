@@ -51,7 +51,6 @@ body {
   left: 20%;
   right: 0;
   bottom: 0;
-  
   display: flex;
   flex-direction: column;
   background: var(--builder-canvas-bg);
@@ -63,9 +62,6 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  
-  min-height: 60px;
- 
   border: 1px solid rgba(17, 24, 39, 0.08);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.9);
@@ -73,6 +69,7 @@ body {
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
     /* ADD THIS LINE */
   transition: all 200ms ease;
+  padding: 4px 10px;
 }
 
 .canvas-topbar-left,
@@ -80,7 +77,7 @@ body {
 .canvas-topbar-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 10px 6px;
 }
 
 .canvas-topbar-title {
@@ -437,6 +434,10 @@ body {
   bottom: 0;
   overflow: hidden;
   background: black;
+}
+
+.canvas-topbar-wrap {
+  padding: 12px 20px 2px;
 }
 
 .dashboard-builder-sidebar {

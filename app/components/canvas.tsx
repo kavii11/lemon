@@ -183,7 +183,9 @@ export default function Canvas() {
 
   return (
     <main className="flex h-full min-h-screen flex-1 flex-col bg-zinc-100">
-      <CanvasTopbar />
+      <div className="canvas-topbar-wrap">
+    <CanvasTopbar />
+  </div>
 
       <div className="flex-1 overflow-auto">
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 p-4 md:p-6">
