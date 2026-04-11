@@ -184,8 +184,8 @@ export default function Canvas() {
   return (
     <main className="flex h-full min-h-screen flex-1 flex-col bg-zinc-100">
       <div className="canvas-topbar-wrap">
-    <CanvasTopbar />
-  </div>
+        <CanvasTopbar />
+      </div>
 
       <div className="flex-1 overflow-auto">
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 p-4 md:p-6">
@@ -224,20 +224,6 @@ export default function Canvas() {
                         </button>
                       </div>
                     )}
-
-                    {pickerSectionId && emptyProductSectionId === pickerSectionId && (
-                      <div className="mt-4">
-                        <BlockPicker
-                          sectionId={pickerSectionId}
-                          mode="layoutOnly"
-                          onPick={(sectionId: string, type: string) => {
-                            addBlock(sectionId, type);
-                            setPickerSectionId(null);
-                          }}
-                          onClose={() => setPickerSectionId(null)}
-                        />
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col gap-6">
@@ -249,11 +235,11 @@ export default function Canvas() {
                           onAddBlock={(sectionId) => setPickerSectionId(sectionId)}
                         />
 
-                        {pickerSectionId === section.id && (
+                        {pickerSectionId === section.id && builderType !== "product" && (
                           <div className="mt-3">
                             <BlockPicker
                               sectionId={section.id}
-                              mode={builderType === "product" ? "fieldOnly" : "all"}
+                              mode="all"
                               onPick={(sectionId: string, type: string) => {
                                 addBlock(sectionId, type);
                                 setPickerSectionId(null);
@@ -271,6 +257,28 @@ export default function Canvas() {
           </div>
         </div>
       </div>
+
+      {pickerSectionId && builderType === "product" && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setPickerSectionId(null)}
+        >
+          <div
+            className="relative w-full max-w-6xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <BlockPicker
+              sectionId={pickerSectionId}
+              mode="layoutOnly"
+              onPick={(sectionId: string, type: string) => {
+                addBlock(sectionId, type);
+                setPickerSectionId(null);
+              }}
+              onClose={() => setPickerSectionId(null)}
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }

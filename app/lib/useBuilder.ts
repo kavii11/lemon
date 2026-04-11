@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { productLibrary } from "@/app/components/productLibrary";
 
 export type Device = "desktop" | "tablet" | "mobile";
 
@@ -40,6 +41,7 @@ export type ButtonItem = {
 export type StatItem = {
   label: string;
   value: string;
+  trend?: string;
 };
 
 export type PriceFeature = {
@@ -125,6 +127,8 @@ type BuilderState = {
   future: Section[][];
   currentDevice: Device;
   selectedBlock: { sectionId: string; blockId: string } | null;
+  activeLayoutId: string | null;
+  hasRealProductLayout: boolean;
 
   setDevice: (device: Device) => void;
   setSelectedBlock: (sectionId: string, blockId: string) => void;
@@ -133,6 +137,10 @@ type BuilderState = {
   addSection: (type: string, index?: number) => void;
   addBlock: (sectionId: string, type: string, index?: number) => void;
   addVariantSection: (variant: any) => void;
+  addLayout: (layoutId: string) => void;
+  replaceLayout: (layoutId: string) => void;
+  clearCurrentBuilder: () => void;
+
   moveBlock: (sectionId: string, activeId: string, overId: string) => void;
   updateBlock: (sectionId: string, blockId: string, updates: Partial<Style>) => void;
   updateBlockProps: (sectionId: string, blockId: string, updates: Partial<BlockProps>) => void;
@@ -159,12 +167,6 @@ const uid = () => crypto.randomUUID();
 
 const cloneSections = (sections: Section[]) =>
   JSON.parse(JSON.stringify(sections)) as Section[];
-
-const PRODUCT_LAYOUT_VARIANT_IDS = new Set([
-  "standard-product",
-  "centered-product",
-  "product-grid",
-]);
 
 const baseStyle = (overrides?: Partial<Style>) => ({
   desktop: {
@@ -516,6 +518,52 @@ const initialProductSections: Section[] = [
   },
 ];
 
+const resolveProductVariant = (layoutId: string) => {
+  for (const group of productLibrary || []) {
+    const found = (group.variants || []).find((variant: any) => variant.id === layoutId);
+    if (found) return found;
+  }
+  return null;
+};
+
+const hydrateVariantSections = (variant: any): Section[] => {
+  if (!variant?.sections || !Array.isArray(variant.sections)) return [];
+
+  return variant.sections.map((section: any) => ({
+    id: uid(),
+    type: section.type || "section",
+    blocks: (section.blocks || []).map((b: any) => {
+      const base = createBlock(b.type);
+      return {
+        ...base,
+        id: uid(),
+        props: {
+          ...base.props,
+          ...(b.props || {}),
+        },
+      };
+    }),
+  }));
+};
+
+const hasProductLayoutContent = (sections: Section[]) =>
+  sections.some(
+    (section) =>
+      Array.isArray(section.blocks) &&
+      section.blocks.some((block) => {
+        const t = String(block?.type || "");
+        return (
+          t.startsWith("product-") ||
+          t === "product" ||
+          t === "product-list" ||
+          t === "cart" ||
+          t === "checkout" ||
+          t === "table" ||
+          t === "stats"
+        );
+      })
+  );
+
 const pushHistory = (state: BuilderState) => {
   const currentSections =
     state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
@@ -535,11 +583,15 @@ export const useBuilder = create<BuilderState>((set, get) => ({
   future: [],
   currentDevice: "desktop",
   selectedBlock: null,
+  activeLayoutId: null,
+  hasRealProductLayout: false,
 
   setBuilderType: (type) =>
     set((state) => ({
       builderType: type,
       sections: type === "website" ? state.sectionsWebsite : state.sectionsProduct,
+      hasRealProductLayout:
+        type === "product" ? hasProductLayoutContent(state.sectionsProduct) : false,
     })),
 
   setDevice: (device) => set({ currentDevice: device }),
@@ -563,6 +615,10 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
         sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
         selectedBlock: null,
+        hasRealProductLayout:
+          state.builderType === "product"
+            ? hasProductLayoutContent(next)
+            : state.hasRealProductLayout,
         ...pushHistory(state),
       };
     }),
@@ -576,103 +632,89 @@ export const useBuilder = create<BuilderState>((set, get) => ({
 
       const next = cloneSections(currentSections);
 
-      if (next.some((section) => section.blocks?.length > 0)) {
+      if (hasProductLayoutContent(next)) {
         return state;
       }
 
-      if (variant?.kind === "multi-section" && Array.isArray(variant.sections)) {
-        const newSections = variant.sections.map((section: any) => ({
-          id: uid(),
-          type:
-            variant.id === "standard-product"
-              ? "product-standard"
-              : variant.id === "centered-product"
-              ? "product-centered"
-              : variant.id === "product-grid"
-              ? "product-grid"
-              : section.type || "section",
-          blocks: (section.blocks || []).map((b: any) => {
-            const base = createBlock(b.type);
-            return {
-              ...base,
-              props: {
-                ...base.props,
-                ...(b.props || {}),
-              },
-            };
-          }),
-        }));
+      const newSections = hydrateVariantSections(variant);
+      if (!newSections.length) return state;
 
-        return {
-          sections: newSections,
-          sectionsWebsite: state.sectionsWebsite,
-          sectionsProduct: newSections,
-          sections: newSections,
-          selectedBlock: null,
-          ...pushHistory(state),
-        };
-      }
+      return {
+        sections: newSections,
+        sectionsWebsite: state.sectionsWebsite,
+        sectionsProduct: newSections,
+        selectedBlock: null,
+        activeLayoutId: variant?.id || null,
+        hasRealProductLayout: true,
+        ...pushHistory(state),
+      };
+    }),
 
-      return state;
+  addLayout: (layoutId: string) =>
+    set((state) => {
+      if (state.builderType !== "product") return state;
+
+      const variant = resolveProductVariant(layoutId);
+      if (!variant) return state;
+
+      const currentSections = cloneSections(state.sectionsProduct);
+      if (hasProductLayoutContent(currentSections)) return state;
+
+      const newSections = hydrateVariantSections(variant);
+      if (!newSections.length) return state;
+
+      return {
+        sections: newSections,
+        sectionsWebsite: state.sectionsWebsite,
+        sectionsProduct: newSections,
+        selectedBlock: null,
+        activeLayoutId: layoutId,
+        hasRealProductLayout: true,
+        ...pushHistory(state),
+      };
+    }),
+
+  replaceLayout: (layoutId: string) =>
+    set((state) => {
+      if (state.builderType !== "product") return state;
+
+      const variant = resolveProductVariant(layoutId);
+      if (!variant) return state;
+
+      const newSections = hydrateVariantSections(variant);
+      if (!newSections.length) return state;
+
+      return {
+        sections: newSections,
+        sectionsWebsite: state.sectionsWebsite,
+        sectionsProduct: newSections,
+        selectedBlock: null,
+        activeLayoutId: layoutId,
+        hasRealProductLayout: true,
+        ...pushHistory(state),
+      };
+    }),
+
+  clearCurrentBuilder: () =>
+    set((state) => {
+      const resetSections =
+        state.builderType === "website" ? cloneSections(initialWebsiteSections) : cloneSections(initialProductSections);
+
+      return {
+        sections: resetSections,
+        sectionsWebsite: state.builderType === "website" ? resetSections : state.sectionsWebsite,
+        sectionsProduct: state.builderType === "product" ? resetSections : state.sectionsProduct,
+        selectedBlock: null,
+        activeLayoutId: state.builderType === "product" ? null : state.activeLayoutId,
+        hasRealProductLayout: state.builderType === "product" ? false : state.hasRealProductLayout,
+        ...pushHistory(state),
+      };
     }),
 
   addBlock: (sectionId, type, index) =>
     set((state) => {
       const currentSections =
         state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
-
-      if (
-        state.builderType === "product" &&
-        PRODUCT_LAYOUT_VARIANT_IDS.has(type)
-      ) {
-        const variantMap: Record<string, any> = {
-          "standard-product": {
-            id: "standard-product",
-            kind: "multi-section",
-            sections: [
-              {
-                type: "product-standard",
-                blocks: [
-                  { type: "image" },
-                  { type: "heading", props: { content: "Product Name" } },
-                  { type: "text", props: { content: "₹999" } },
-                  { type: "button", props: { content: "Add to Cart" } },
-                ],
-              },
-            ],
-          },
-          "centered-product": {
-            id: "centered-product",
-            kind: "multi-section",
-            sections: [
-              {
-                type: "product-centered",
-                blocks: [
-                  { type: "image" },
-                  { type: "heading", props: { content: "Minimal Product" } },
-                  { type: "text", props: { content: "₹799" } },
-                  { type: "button", props: { content: "Buy Now" } },
-                ],
-              },
-            ],
-          },
-          "product-grid": {
-            id: "product-grid",
-            kind: "multi-section",
-            sections: [
-              {
-                type: "product-grid",
-                blocks: [
-                  { type: "heading", props: { content: "Our Products" } },
-                  { type: "product-list" },
-                ],
-              },
-            ],
-          },
-        };
-
-        return get().addVariantSection(variantMap[type]), state;
-      }
 
       const next = cloneSections(currentSections);
       const section = next.find((item) => item.id === sectionId);
@@ -691,6 +733,10 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
         sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
         selectedBlock: { sectionId, blockId: block.id },
+        hasRealProductLayout:
+          state.builderType === "product"
+            ? hasProductLayoutContent(next)
+            : state.hasRealProductLayout,
         ...pushHistory(state),
       };
     }),
@@ -736,6 +782,10 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
         sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
         selectedBlock: { sectionId: targetSection.id, blockId: movedBlock.id },
+        hasRealProductLayout:
+          state.builderType === "product"
+            ? hasProductLayoutContent(next)
+            : state.hasRealProductLayout,
         ...pushHistory(state),
       };
     }),
@@ -875,6 +925,10 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
         sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
         selectedBlock: { sectionId, blockId: copy.id },
+        hasRealProductLayout:
+          state.builderType === "product"
+            ? hasProductLayoutContent(next)
+            : state.hasRealProductLayout,
         ...pushHistory(state),
       };
     }),
@@ -895,6 +949,10 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
         sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
         selectedBlock: state.selectedBlock?.blockId === blockId ? null : state.selectedBlock,
+        hasRealProductLayout:
+          state.builderType === "product"
+            ? hasProductLayoutContent(next)
+            : state.hasRealProductLayout,
         ...pushHistory(state),
       };
     }),
@@ -916,6 +974,8 @@ export const useBuilder = create<BuilderState>((set, get) => ({
           ),
           ...state.future,
         ],
+        hasRealProductLayout:
+          state.builderType === "product" ? hasProductLayoutContent(previous) : false,
       };
     }),
 
@@ -936,6 +996,8 @@ export const useBuilder = create<BuilderState>((set, get) => ({
           ),
         ],
         future: state.future.slice(1),
+        hasRealProductLayout:
+          state.builderType === "product" ? hasProductLayoutContent(nextFuture) : false,
       };
     }),
 
@@ -947,6 +1009,8 @@ export const useBuilder = create<BuilderState>((set, get) => ({
     return {
       builderType: state.builderType,
       currentDevice: state.currentDevice,
+      activeLayoutId: state.activeLayoutId,
+      hasRealProductLayout: state.hasRealProductLayout,
       sections: currentSections,
     };
   },
