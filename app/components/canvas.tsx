@@ -13,6 +13,9 @@ import { useBuilder } from "@/app/lib/useBuilder";
 import BlockRenderer from "./builder/BlockRenderer";
 import BlockPicker from "./builder/BlockPicker";
 import CanvasTopbar from "./CanvasTopbar";
+import ComponentLibraryModal from "@/app/lib/ComponentLibraryModal"; // 👈 SAME MODAL
+import {productLibrary} from "./productLibrary"; // 👈 SAME LIBRARY
+import { Layout } from "lucide-react";
 
 type BlockType = {
   id: string;
@@ -65,15 +68,21 @@ function SortableBlock({
   block: BlockType;
   sectionId: string;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({
-      id: block.id,
-      data: {
-        source: "canvas",
-        blockId: block.id,
-        sectionId,
-      },
-    });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: block.id,
+    data: {
+      source: "canvas",
+      blockId: block.id,
+      sectionId,
+    },
+  });
 
   const currentDevice = useBuilder((state: any) => state.currentDevice);
   const width = block?.props?.style?.[currentDevice]?.width || "100%";
@@ -171,8 +180,12 @@ export default function Canvas() {
   const builderType = useBuilder((state: any) => state.builderType);
   const currentDevice = useBuilder((state: any) => state.currentDevice);
   const addBlock = useBuilder((state: any) => state.addBlock);
+  const addVariantSection = useBuilder((state: any) => state.addVariantSection); // 👈 NEW
 
   const [pickerSectionId, setPickerSectionId] = useState<string | null>(null);
+  
+  // 👈 NEW: Same modal state as ProductSidebar
+  const [activeItem, setActiveItem] = useState<any>(null);
 
   const hasProductLayout =
     builderType === "product" &&
@@ -180,6 +193,28 @@ export default function Canvas() {
 
   const emptyProductSectionId = sections?.[0]?.id ?? null;
   const deviceFrame = getDeviceFrame(currentDevice);
+
+  // 👈 NEW: Same handleOpenLibrary logic as ProductSidebar
+  const handleOpenLibrary = () => {
+    if (hasProductLayout) return;
+
+    setActiveItem({
+      type: "product-library-root",
+      label: "Product Layouts",
+      category: "Product",
+      description: "Choose from product layout categories and ready-made variants.",
+      variants: productLibrary.flatMap((group: any) =>
+        (group.variants || []).map((variant: any) => ({
+          ...variant,
+          groupId: group.type,
+          groupLabel: group.label,
+          groupDescription: group.description,
+          groupCategory: group.category,
+          libraryType: "product-layout",
+        }))
+      ),
+    });
+  };
 
   return (
     <main className="flex h-full min-h-screen flex-1 flex-col bg-zinc-100">
@@ -214,10 +249,11 @@ export default function Canvas() {
 
                     {emptyProductSectionId && (
                       <div className="mt-6 flex justify-center">
+                        {/* 👈 CHANGED: Now opens SAME modal as sidebar */}
                         <button
                           type="button"
+                          onClick={handleOpenLibrary} // 👈 NEW
                           className="inline-flex items-center gap-2 rounded-xl border border-dashed border-zinc-300 bg-white px-4 py-3 text-sm font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50"
-                          onClick={() => setPickerSectionId(emptyProductSectionId)}
                         >
                           <Plus size={16} />
                           Choose product layout
@@ -258,27 +294,31 @@ export default function Canvas() {
         </div>
       </div>
 
-      {pickerSectionId && builderType === "product" && (
-        <div
-          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setPickerSectionId(null)}
-        >
-          <div
-            className="relative w-full max-w-6xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <BlockPicker
-              sectionId={pickerSectionId}
-              mode="layoutOnly"
-              onPick={(sectionId: string, type: string) => {
-                addBlock(sectionId, type);
-                setPickerSectionId(null);
-              }}
-              onClose={() => setPickerSectionId(null)}
-            />
-          </div>
-        </div>
-      )}
+      {/* 👈 FIXED: Modal wrapper with z-[10000] */}
+{!!activeItem && (
+  <div 
+  className="canvas-modal-overlay"
+  onClick={() => setActiveItem(null)}
+>
+  <div 
+    className="canvas-modal-panel"
+    onClick={(e) => e.stopPropagation()}
+  >
+      <ComponentLibraryModal
+        item={activeItem}
+        open={!!activeItem}
+        onClose={() => setActiveItem(null)}
+        onInsertVariant={(variant: any) => {
+          if (!variant) return;
+          addVariantSection(variant);
+          setActiveItem(null);
+        }}
+      />
+    </div>
+  </div>
+)}
+
+      {/* 👈 REMOVED: Old BlockPicker modal - no longer needed */}
     </main>
   );
 }
