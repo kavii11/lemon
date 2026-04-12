@@ -1,12 +1,15 @@
 @import "tailwindcss";
 
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+
 /* ==========================================================================
    DESIGN TOKENS
-   ========================================================================== */
+   =========================================================================== */
+
 
 :root {
   /* Core app */
@@ -35,6 +38,7 @@
   --radius-xl: 1rem;
 }
 
+
 [data-theme="dark"] {
   --background: #0f172a;
   --foreground: #f1f5f9;
@@ -46,19 +50,23 @@
   --builder-border: #475569;
 }
 
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
+
 /* ==========================================================================
    BASE
-   ========================================================================== */
+   =========================================================================== */
+
 
 * {
   box-sizing: border-box;
 }
+
 
 html, body {
   margin: 0;
@@ -71,14 +79,17 @@ html, body {
   line-height: 1.6;
 }
 
+
 ::selection {
   background: var(--builder-accent);
   color: white;
 }
 
+
 /* ==========================================================================
    LAYOUT SHELL
-   ========================================================================== */
+   =========================================================================== */
+
 
 .builder-app {
   display: grid;
@@ -89,6 +100,7 @@ html, body {
   gap: 0;
 }
 
+
 @media (max-width: 1024px) {
   .builder-app {
     grid-template: 
@@ -97,17 +109,56 @@ html, body {
   }
 }
 
+
 /* Topbar */
 .canvas-topbar {
   grid-area: topbar;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.5rem 1.5rem;
-  border-bottom: 1px solid var(--builder-line);
+  gap: 12px;
+  padding: 0.3rem 0.8rem;  /* --space-4, --space-5 */
+  border: 1px solid var(--builder-line);
   background: var(--builder-glass);
   backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-md);
+  min-height: 56px;
+  border-radius: var(--radius-xl);
+}
+
+.canvas-topbar-wrap {
+  padding: 6px 8px 0px;
+  background: transparent;
+  flex-shrink: 0;
+}
+@media (max-width: 768px) {
+  .canvas-topbar-wrap {
+    padding: 10px 12px 8px;
+  }
+}
+
+.canvas-topbar-left,
+.canvas-topbar-center,
+.canvas-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.canvas-topbar-left {
+  flex: 1 1 0;
+  justify-content: flex-start;
+}
+
+.canvas-topbar-center {
+  flex: 0 1 auto;
+  justify-content: center;
+}
+
+.canvas-topbar-right {
+  flex: 1 1 0;
+  justify-content: flex-end;
 }
 
 .canvas-topbar-section {
@@ -115,6 +166,7 @@ html, body {
   align-items: center;
   gap: 0.75rem;
 }
+
 
 /* Sidebar */
 .builder-sidebar {
@@ -125,6 +177,7 @@ html, body {
   display: flex;
   flex-direction: column;
 }
+
 
 @media (max-width: 1024px) {
   .builder-sidebar {
@@ -140,6 +193,7 @@ html, body {
   }
 }
 
+
 /* Canvas */
 .builder-canvas {
   grid-area: main / 2;
@@ -149,6 +203,7 @@ html, body {
   overflow: hidden;
 }
 
+
 .builder-viewport {
   flex: 1;
   padding: 2rem;
@@ -157,14 +212,17 @@ html, body {
   scrollbar-gutter: stable;
 }
 
+
 /* ==========================================================================
    TOPBAR COMPONENTS
-   ========================================================================== */
+   =========================================================================== */
+
 
 .canvas-topbar-title {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
+  min-width: 0;
   font-weight: 600;
   font-size: 1.125rem;
 }
@@ -172,47 +230,111 @@ html, body {
 .canvas-topbar-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  height: 2rem;
-  padding: 0 1rem;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
   border-radius: 9999px;
-  background: color-mix(in srgb, var(--builder-accent) 20%, transparent);
+  background: color-mix(in srgb, var(--builder-accent) 14%, white);
   color: var(--builder-accent);
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.canvas-topbar-meta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  line-height: 1.1;
+}
+
+.canvas-topbar-meta strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+.canvas-topbar-meta span {
+  font-size: 12px;
+  color: var(--builder-muted);
+  white-space: nowrap;
 }
 
 .canvas-device-switcher {
   display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
   border-radius: var(--radius-lg);
-  background: var(--builder-border);
+  background: color-mix(in srgb, var(--builder-border) 70%, white);
   border: 1px solid var(--builder-line);
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5);
 }
 
-.canvas-device-btn,
+.canvas-device-switcher button,
 .canvas-topbar-btn {
   display: inline-flex;
-  items: center;
+  align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: none;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--builder-muted);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.canvas-device-switcher button:hover,
+.canvas-topbar-btn:hover {
+  transform: translateY(-1px);
+}
+
+.canvas-device-switcher button:hover:not(.active) {
+  background: rgb(255 255 255 / 0.55);
+  color: var(--foreground);
 }
 
 .canvas-device-btn.active,
-.canvas-topbar-btn.active {
+.canvas-topbar-btn.active,
+.canvas-device-switcher button.active {
   background: var(--builder-surface);
   color: var(--foreground);
   box-shadow: var(--shadow-sm);
   transform: translateY(-1px);
+}
+
+.canvas-device-size {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 12px;
+  margin-left: 2px;
+  border-left: 1px solid rgb(15 23 42 / 0.08);
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.canvas-topbar-btn {
+  background: var(--builder-surface);
+  border-color: rgb(15 23 42 / 0.08);
+  color: var(--foreground);
+}
+
+.canvas-topbar-btn:hover {
+  box-shadow: var(--shadow-sm);
 }
 
 .canvas-topbar-btn.primary {
@@ -221,9 +343,11 @@ html, body {
   font-weight: 600;
 }
 
+
 /* ==========================================================================
    CANVAS CONTENT
-   ========================================================================== */
+   =========================================================================== */
+
 
 .layout-stack {
   display: flex;
@@ -232,6 +356,7 @@ html, body {
   max-width: 1200px;
   margin: 0 auto;
 }
+
 
 .layout-group-shell {
   border: 1px solid var(--builder-line);
@@ -242,9 +367,11 @@ html, body {
   transition: all 0.2s ease;
 }
 
+
 .layout-group-shell:hover {
   box-shadow: var(--shadow-md);
 }
+
 
 .layout-group-header {
   display: flex;
@@ -254,6 +381,7 @@ html, body {
   gap: 0.75rem;
 }
 
+
 .page-section {
   position: relative;
   padding: 1.25rem;
@@ -261,11 +389,13 @@ html, body {
   min-height: 8rem;
 }
 
+
 .page-section.is-over {
   background: color-mix(in srgb, var(--builder-accent) 10%, transparent);
   outline: 2px solid var(--builder-accent);
   outline-offset: 2px;
 }
+
 
 .page-section-label {
   display: inline-flex;
@@ -279,9 +409,11 @@ html, body {
   color: var(--builder-muted);
 }
 
+
 /* ==========================================================================
    INSERT CONTROLS
-   ========================================================================== */
+   =========================================================================== */
+
 
 .layout-insert-rail {
   position: relative;
@@ -291,6 +423,7 @@ html, body {
   justify-content: center;
 }
 
+
 .layout-insert-rail::before {
   content: "";
   position: absolute;
@@ -298,6 +431,7 @@ html, body {
   border-top: 2px dashed var(--builder-line);
   transform: translateY(-50%);
 }
+
 
 .layout-insert-button {
   position: relative;
@@ -316,6 +450,7 @@ html, body {
   box-shadow: var(--shadow-sm);
 }
 
+
 .layout-insert-button:hover {
   border-color: var(--builder-accent);
   background: color-mix(in srgb, var(--builder-accent) 10%, transparent);
@@ -324,12 +459,14 @@ html, body {
   box-shadow: var(--shadow-md);
 }
 
+
 .insert-section-bottom {
   padding-top: 1.5rem;
   margin-top: 0.5rem;
   border-top: 2px dashed var(--builder-line);
   text-align: center;
 }
+
 
 .insert-section-bottom-button {
   display: inline-flex;
@@ -345,15 +482,18 @@ html, body {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+
 .insert-section-bottom-button:hover {
   border-color: var(--builder-accent);
   background: color-mix(in srgb, var(--builder-accent) 10%, transparent);
   color: var(--builder-accent);
 }
 
+
 /* ==========================================================================
    EMPTY STATE
-   ========================================================================== */
+   =========================================================================== */
+
 
 .builder-empty-state {
   min-height: 20rem;
@@ -365,6 +505,7 @@ html, body {
   text-align: center;
   color: var(--builder-muted);
 }
+
 
 .builder-empty-plus {
   width: 4rem;
@@ -381,6 +522,7 @@ html, body {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+
 .builder-empty-plus:hover {
   border-color: var(--builder-accent);
   background: color-mix(in srgb, var(--builder-accent) 15%, transparent);
@@ -388,6 +530,7 @@ html, body {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
+
 
 .builder-empty-copy strong {
   display: block;
@@ -397,15 +540,18 @@ html, body {
   margin-bottom: 0.25rem;
 }
 
+
 .builder-empty-copy span {
   font-size: 0.9375rem;
   opacity: 0.8;
   max-width: 28rem;
 }
 
+
 /* ==========================================================================
    BLOCK PREVIEWS
-   ========================================================================== */
+   =========================================================================== */
+
 
 .builder-block-row {
   display: flex;
@@ -413,6 +559,7 @@ html, body {
   gap: 0.75rem;
   padding: 1rem;
 }
+
 
 .builder-block-shell {
   position: relative;
@@ -431,14 +578,17 @@ html, body {
   text-align: center;
 }
 
+
 .builder-block-shell:hover {
   border-color: var(--builder-accent);
   background: var(--builder-glass);
 }
 
+
 /* ==========================================================================
    MOBILE & TABLET
-   ========================================================================== */
+   =========================================================================== */
+
 
 @media (max-width: 768px) {
   .builder-viewport {
@@ -456,7 +606,49 @@ html, body {
   .builder-block-shell {
     min-width: calc(50% - 0.375rem);
   }
+
+  .canvas-topbar {
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .canvas-topbar-left,
+  .canvas-topbar-center,
+  .canvas-topbar-right {
+    width: 100%;
+  }
+
+  .canvas-topbar-left {
+    order: 1;
+  }
+
+  .canvas-topbar-right {
+    order: 2;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .canvas-topbar-center {
+    order: 3;
+    justify-content: flex-start;
+  }
+
+  .canvas-device-switcher {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .canvas-device-switcher button {
+    flex: 1 1 0;
+  }
+
+  .canvas-topbar-btn {
+    flex: 1 1 auto;
+  }
 }
+
 
 @media (max-width: 480px) {
   .canvas-topbar {
@@ -466,6 +658,26 @@ html, body {
   
   .canvas-topbar-title {
     font-size: 1rem;
+    width: 100%;
+  }
+
+  .canvas-topbar-meta strong,
+  .canvas-topbar-meta span {
+    white-space: normal;
+  }
+
+  .canvas-device-switcher button span {
+    display: none;
+  }
+
+  .canvas-device-switcher button {
+    min-width: 44px;
+    padding: 0 10px;
+  }
+
+  .canvas-device-size {
+    font-size: 12px;
+    padding: 0 10px;
   }
   
   .builder-block-shell {
@@ -473,9 +685,11 @@ html, body {
   }
 }
 
+
 /* ==========================================================================
    UTILITIES
-   ========================================================================== */
+   =========================================================================== */
+
 
 .sr-only {
   position: absolute;

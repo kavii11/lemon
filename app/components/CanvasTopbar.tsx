@@ -46,87 +46,92 @@ export default function CanvasTopbar() {
   };
 
   return (
-    <div className="canvas-topbar">
-      <div className="canvas-topbar-left">
-        <div className="canvas-topbar-title">
-          <span className="canvas-topbar-badge">
-            <Layers3 size={14} />
-            Canvas
-          </span>
+    <div className="canvas-topbar-wrap">
+      <div className="canvas-topbar">
+        <div className="canvas-topbar-left">
+          <div className="canvas-topbar-title">
+            <span className="canvas-topbar-badge">
+              <Layers3 size={14} />
+              Canvas
+            </span>
 
-          <div className="canvas-topbar-meta">
-            <strong>{builderType === "product" ? "Product Builder" : "Website Builder"}</strong>
-            <span>{sections.length} section(s)</span>
+            <div className="canvas-topbar-meta">
+              <strong>
+                {builderType === "product" ? "Product Builder" : "Website Builder"}
+              </strong>
+              <span>{sections.length} section(s)</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="canvas-topbar-center">
-        <div className="canvas-device-switcher">
-          <button
-            type="button"
-            className={currentDevice === "desktop" ? "active" : ""}
-            onClick={() => setDevice("desktop")}
-            aria-label="Desktop view"
-          >
-            <Monitor size={16} />
-            <span>Desktop</span>
-          </button>
+        <div className="canvas-topbar-center">
+          <div className="canvas-device-group">
+            <div className="canvas-device-switcher">
+              <button
+                type="button"
+                className={currentDevice === "desktop" ? "active" : ""}
+                onClick={() => setDevice("desktop")}
+                aria-label="Desktop view"
+              >
+                <Monitor size={16} />
+                <span>Desktop</span>
+              </button>
 
-          <button
-            type="button"
-            className={currentDevice === "tablet" ? "active" : ""}
-            onClick={() => setDevice("tablet")}
-            aria-label="Tablet view"
-          >
-            <Tablet size={16} />
-            <span>Tablet</span>
-          </button>
+              <button
+                type="button"
+                className={currentDevice === "tablet" ? "active" : ""}
+                onClick={() => setDevice("tablet")}
+                aria-label="Tablet view"
+              >
+                <Tablet size={16} />
+                <span>Tablet</span>
+              </button>
 
-          <button
-            type="button"
-            className={currentDevice === "mobile" ? "active" : ""}
-            onClick={() => setDevice("mobile")}
-            aria-label="Mobile view"
-          >
-            <Smartphone size={16} />
-            <span>Mobile</span>
-          </button>
+              <button
+                type="button"
+                className={currentDevice === "mobile" ? "active" : ""}
+                onClick={() => setDevice("mobile")}
+                aria-label="Mobile view"
+              >
+                <Smartphone size={16} />
+                <span>Mobile</span>
+              </button>
+            </div>
 
-          
+            <span className="canvas-device-size" aria-label="Current canvas size">
+              {getDeviceFrameLabel(currentDevice)}
+            </span>
+          </div>
         </div>
-        <span className="canvas-device-size" aria-label="Current canvas size">
-            {getDeviceFrameLabel(currentDevice)}
-          </span>
-      </div>
 
-      <div className="canvas-topbar-right">
-        <button
-          type="button"
-          className="canvas-topbar-btn"
-          onClick={undo}
-          aria-label="Undo"
-        >
-          <Undo2 size={16} />
-        </button>
+        <div className="canvas-topbar-right">
+          <button
+            type="button"
+            className="canvas-topbar-btn"
+            onClick={undo}
+            aria-label="Undo"
+          >
+            <Undo2 size={16} />
+          </button>
 
-        <button
-          type="button"
-          className="canvas-topbar-btn"
-          onClick={redo}
-          aria-label="Redo"
-        >
-          <Redo2 size={16} />
-        </button>
+          <button
+            type="button"
+            className="canvas-topbar-btn"
+            onClick={redo}
+            aria-label="Redo"
+          >
+            <Redo2 size={16} />
+          </button>
 
-        <button
-          type="button"
-          className="canvas-topbar-btn"
-          onClick={handleExport}
-        >
-          <Download size={16} />
-          <span>Export</span>
-        </button>
+          <button
+            type="button"
+            className="canvas-topbar-btn canvas-topbar-btn-export"
+            onClick={handleExport}
+          >
+            <Download size={16} />
+            <span>Export</span>
+          </button>
+        </div>
       </div>
     </div>
   );
