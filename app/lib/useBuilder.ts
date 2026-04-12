@@ -158,6 +158,7 @@ type BuilderState = {
   ) => void;
   duplicateBlock: (sectionId: string, blockId: string) => void;
   removeBlock: (sectionId: string, blockId: string) => void;
+  removeSection: (sectionId: string) => void;  // 👈 ADD THIS
   undo: () => void;
   redo: () => void;
   exportData: () => any;
@@ -956,6 +957,32 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         ...pushHistory(state),
       };
     }),
+
+   removeSection: (sectionId) =>
+  set((state) => {
+    const currentSections =
+      state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
+
+    const filtered = currentSections.filter((s: any) => s.id !== sectionId);
+
+    const next =
+      state.builderType === "product" && filtered.length === 0
+        ? cloneSections(initialProductSections)
+        : filtered;
+
+    return {
+      sections: next,
+      sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
+      sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+      selectedBlock: null,
+      activeLayoutId: state.builderType === "product" ? null : state.activeLayoutId,
+      hasRealProductLayout:
+        state.builderType === "product"
+          ? hasProductLayoutContent(next)
+          : state.hasRealProductLayout,
+      ...pushHistory(state),
+    };
+  }),
 
   undo: () =>
     set((state) => {

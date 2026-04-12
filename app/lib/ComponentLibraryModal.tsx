@@ -13,6 +13,7 @@ type LibraryItem = {
   variants: any[];
 };
 
+
 export default function ComponentLibraryModal({
   item,
   open,
@@ -26,7 +27,7 @@ export default function ComponentLibraryModal({
 }) {
   const [query, setQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState(0);
-
+const [mounted, setMounted] = useState(false);
   const groups = useMemo(() => {
     if (!item) return [];
     return Array.isArray(item) ? item : [item];
@@ -74,14 +75,33 @@ export default function ComponentLibraryModal({
     return Array.from(tagSet).slice(0, 10);
   }, [currentGroup]);
 
-  if (!open || !item) return null;
+  useEffect(() => {
+  setMounted(true);
+}, []);
+
+useEffect(() => {
+  if (!open) return;
+
+  const originalOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+
+  return () => {
+    document.body.style.overflow = originalOverflow;
+  };
+}, [open]);
+
+if (!open || !item || !mounted) return null;
 
 return createPortal(
-  <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-md flex items-center justify-center">
-
+  <div
+    className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-md flex items-center justify-center"
+    onClick={onClose}
+  >
     {/* ✅ CENTER MODAL CONTAINER (IMPORTANT FIX) */}
-    <div className="relative flex h-[88vh] w-[min(1200px,94vw)] overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-[0_30px_80px_rgba(0,0,0,0.18)]">
-
+   <div
+  className="relative flex h-[88vh] w-[min(1200px,94vw)] overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-[0_30px_80px_rgba(0,0,0,0.18)]"
+  onClick={(e) => e.stopPropagation()}
+>
       {/* LEFT SIDEBAR */}
       <aside className="hidden w-[280px] shrink-0 border-r border-zinc-200 bg-zinc-50/80 md:flex md:flex-col">
         <div className="border-b border-zinc-200 px-5 py-5">
@@ -207,7 +227,7 @@ return createPortal(
       </section>
 
     </div>
-  </div>,
+   </div>,
   document.body
-        
-)};
+);
+}

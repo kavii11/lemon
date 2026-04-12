@@ -13,9 +13,8 @@ import { useBuilder } from "@/app/lib/useBuilder";
 import BlockRenderer from "./builder/BlockRenderer";
 import BlockPicker from "./builder/BlockPicker";
 import CanvasTopbar from "./CanvasTopbar";
-import ComponentLibraryModal from "@/app/lib/ComponentLibraryModal"; // 👈 SAME MODAL
-import {productLibrary} from "./productLibrary"; // 👈 SAME LIBRARY
-import { Layout } from "lucide-react";
+import ComponentLibraryModal from "@/app/lib/ComponentLibraryModal";
+import { productLibrary } from "./productLibrary";
 
 type BlockType = {
   id: string;
@@ -111,10 +110,12 @@ function SortableBlock({
 function SectionDropZone({
   section,
   onAddBlock,
+  onRemoveSection,
   canAddBlock,
 }: {
   section: SectionType;
   onAddBlock: (sectionId: string) => void;
+  onRemoveSection: (sectionId: string) => void;
   canAddBlock: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -144,14 +145,24 @@ function SectionDropZone({
         </div>
 
         {canAddBlock && (
-          <button
-            type="button"
-            onClick={() => onAddBlock(section.id)}
-            className="inline-flex items-center gap-2 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
-          >
-            <Plus size={16} />
-            Add block
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onRemoveSection(section.id)}
+              className="inline-flex items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition-colors hover:bg-red-100"
+            >
+              Remove
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onAddBlock(section.id)}
+              className="inline-flex flex-1 items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-all hover:border-zinc-300 hover:bg-zinc-50"
+            >
+              <Plus size={16} />
+              Add field
+            </button>
+          </div>
         )}
       </div>
 
@@ -180,21 +191,21 @@ export default function Canvas() {
   const builderType = useBuilder((state: any) => state.builderType);
   const currentDevice = useBuilder((state: any) => state.currentDevice);
   const addBlock = useBuilder((state: any) => state.addBlock);
-  const addVariantSection = useBuilder((state: any) => state.addVariantSection); // 👈 NEW
+  const addVariantSection = useBuilder((state: any) => state.addVariantSection);
+  const removeSection = useBuilder((state: any) => state.removeSection);
 
   const [pickerSectionId, setPickerSectionId] = useState<string | null>(null);
-  
-  // 👈 NEW: Same modal state as ProductSidebar
   const [activeItem, setActiveItem] = useState<any>(null);
 
   const hasProductLayout =
     builderType === "product" &&
-    sections.some((section) => Array.isArray(section.blocks) && section.blocks.length > 0);
+    sections.some(
+      (section) => Array.isArray(section.blocks) && section.blocks.length > 0
+    );
 
   const emptyProductSectionId = sections?.[0]?.id ?? null;
   const deviceFrame = getDeviceFrame(currentDevice);
 
-  // 👈 NEW: Same handleOpenLibrary logic as ProductSidebar
   const handleOpenLibrary = () => {
     if (hasProductLayout) return;
 
@@ -249,10 +260,9 @@ export default function Canvas() {
 
                     {emptyProductSectionId && (
                       <div className="mt-6 flex justify-center">
-                        {/* 👈 CHANGED: Now opens SAME modal as sidebar */}
                         <button
                           type="button"
-                          onClick={handleOpenLibrary} // 👈 NEW
+                          onClick={handleOpenLibrary}
                           className="inline-flex items-center gap-2 rounded-xl border border-dashed border-zinc-300 bg-white px-4 py-3 text-sm font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50"
                         >
                           <Plus size={16} />
@@ -269,13 +279,19 @@ export default function Canvas() {
                           section={section}
                           canAddBlock={!(builderType === "product" && !hasProductLayout)}
                           onAddBlock={(sectionId) => setPickerSectionId(sectionId)}
+                          onRemoveSection={(sectionId) => {
+                            removeSection(sectionId);
+                            if (pickerSectionId === sectionId) {
+                              setPickerSectionId(null);
+                            }
+                          }}
                         />
 
-                        {pickerSectionId === section.id && builderType !== "product" && (
+                        {pickerSectionId === section.id && (
                           <div className="mt-3">
                             <BlockPicker
                               sectionId={section.id}
-                              mode="all"
+                              mode={builderType === "product" ? "fieldOnly" : "all"}
                               onPick={(sectionId: string, type: string) => {
                                 addBlock(sectionId, type);
                                 setPickerSectionId(null);
@@ -294,31 +310,28 @@ export default function Canvas() {
         </div>
       </div>
 
-      {/* 👈 FIXED: Modal wrapper with z-[10000] */}
-{!!activeItem && (
-  <div 
-  className="canvas-modal-overlay"
-  onClick={() => setActiveItem(null)}
->
-  <div 
-    className="canvas-modal-panel"
-    onClick={(e) => e.stopPropagation()}
-  >
-      <ComponentLibraryModal
-        item={activeItem}
-        open={!!activeItem}
-        onClose={() => setActiveItem(null)}
-        onInsertVariant={(variant: any) => {
-          if (!variant) return;
-          addVariantSection(variant);
-          setActiveItem(null);
-        }}
-      />
-    </div>
-  </div>
-)}
-
-      {/* 👈 REMOVED: Old BlockPicker modal - no longer needed */}
+      {!!activeItem && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
+          onClick={() => setActiveItem(null)}
+        >
+          <div
+            className="w-full max-w-[1200px] max-h-[90vh] overflow-hidden rounded-3xl bg-white shadow-[0_30px_80px_rgba(0,0,0,0.18)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ComponentLibraryModal
+              item={activeItem}
+              open={!!activeItem}
+              onClose={() => setActiveItem(null)}
+              onInsertVariant={(variant: any) => {
+                if (!variant) return;
+                addVariantSection(variant);
+                setActiveItem(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }
