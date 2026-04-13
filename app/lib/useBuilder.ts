@@ -27,6 +27,7 @@ export type Style = {
   border?: string;
 };
 
+
 export type LinkItem = {
   label: string;
   href?: string;
@@ -58,6 +59,32 @@ export type TestimonialItem = {
   name: string;
   role?: string;
 };
+
+export type LayoutChild = {
+  id: string;
+  type: string;
+  role?: string;
+  props: BlockProps;
+  children?: LayoutChild[];
+};
+
+export type ProductLayoutInstance = {
+  id: string;
+  variantId: string;
+  label?: string;
+  layout?: string;
+  frame: {
+    desktop?: Style;
+    tablet?: Style;
+    mobile?: Style;
+  };
+  children: LayoutChild[];
+};
+
+export type SelectedNode =
+  | { kind: "layout"; layoutId: string }
+  | { kind: "child"; layoutId: string; childId: string }
+  | null;
 
 export type BlockProps = {
   content?: string;
@@ -110,25 +137,142 @@ export type Block = {
   props: BlockProps;
 };
 
+export type Region = {
+  id: string;
+  name: string;
+  blocks: Block[];
+};
+
 export type Section = {
   id: string;
   type: string;
-  blocks: Block[];
+  layout?: string;  // NEW
+  regions?: Region[];  // NEW
+  blocks: Block[];  // Keep for backwards compatibility
 };
+
+export type BuilderSnapshot = {
+  sectionsWebsite: Section[];
+  sectionsProduct: Section[];
+  productLayout: ProductLayoutInstance | null;
+  activeLayoutId: string | null;
+  currentVariant: any | null;
+  hasRealProductLayout: boolean;
+};
+
+const cloneSnapshot = (snapshot: BuilderSnapshot): BuilderSnapshot =>
+  JSON.parse(JSON.stringify(snapshot));
+
+const makeSnapshot = (state: BuilderState): BuilderSnapshot => ({
+  sectionsWebsite: cloneSections(state.sectionsWebsite),
+  sectionsProduct: cloneSections(state.sectionsProduct),
+  productLayout: state.productLayout
+    ? JSON.parse(JSON.stringify(state.productLayout))
+    : null,
+  activeLayoutId: state.activeLayoutId,
+  currentVariant: state.currentVariant,
+  hasRealProductLayout: state.hasRealProductLayout,
+});
+
+const findChildById = (
+  children: LayoutChild[] = [],
+  childId: string
+): LayoutChild | null => {
+  for (const child of children) {
+    if (child.id === childId) return child;
+    const nested = findChildById(child.children || [], childId);
+    if (nested) return nested;
+  }
+  return null;
+};
+
+const updateChildTree = (
+  children: LayoutChild[] = [],
+  childId: string,
+  updater: (child: LayoutChild) => LayoutChild
+): LayoutChild[] =>
+  children.map((child) => {
+    if (child.id === childId) return updater(child);
+    if (child.children?.length) {
+      return {
+        ...child,
+        children: updateChildTree(child.children, childId, updater),
+      };
+    }
+    return child;
+  });
+
+const removeChildTree = (
+  children: LayoutChild[] = [],
+  childId: string
+): LayoutChild[] =>
+  children
+    .filter((child) => child.id !== childId)
+    .map((child) => ({
+      ...child,
+      children: child.children?.length
+        ? removeChildTree(child.children, childId)
+        : [],
+    }));
+
+const duplicateChildTree = (
+  children: LayoutChild[] = [],
+  childId: string
+): LayoutChild[] =>
+  children.flatMap((child) => {
+    if (child.id === childId) {
+      const copy: LayoutChild = JSON.parse(JSON.stringify(child));
+      copy.id = uid();
+      return [child, copy];
+    }
+
+    if (child.children?.length) {
+      return [
+        {
+          ...child,
+          children: duplicateChildTree(child.children, childId),
+        },
+      ];
+    }
+
+    return [child];
+  });
+
+const pushHistory = (state: BuilderState) => ({
+  history: [...state.history, cloneSnapshot(makeSnapshot(state))],
+  future: [],
+});
 
 type BuilderState = {
   builderType: "website" | "product";
   setBuilderType: (type: "website" | "product") => void;
-
+ currentVariant: any | null;  // NEW
   sectionsWebsite: Section[];
   sectionsProduct: Section[];
+    productLayout: ProductLayoutInstance | null;
+  selectedNode: SelectedNode;
+  setSelectedNode: (node: SelectedNode) => void;
+  clearSelectedNode: () => void;
   sections: Section[];
-  history: Section[][];
-  future: Section[][];
+  history: BuilderSnapshot[];
+future: BuilderSnapshot[];
   currentDevice: Device;
   selectedBlock: { sectionId: string; blockId: string } | null;
   activeLayoutId: string | null;
   hasRealProductLayout: boolean;
+    updateLayoutChildProps: (childId: string, updates: Partial<BlockProps>) => void;
+  updateLayoutChildStyle: (
+    childId: string,
+    device: Device,
+    updates: Partial<Style>
+  ) => void;
+  resizeLayoutChild: (
+    childId: string,
+    direction: "left" | "right" | "top" | "bottom",
+    delta: number
+  ) => void;
+  removeLayoutChild: (childId: string) => void;
+  duplicateLayoutChild: (childId: string) => void;
 
   setDevice: (device: Device) => void;
   setSelectedBlock: (sectionId: string, blockId: string) => void;
@@ -530,26 +674,133 @@ const resolveProductVariant = (layoutId: string) => {
 const hydrateVariantSections = (variant: any): Section[] => {
   if (!variant?.sections || !Array.isArray(variant.sections)) return [];
 
-  return variant.sections.map((section: any) => ({
-    id: uid(),
-    type: section.type || "section",
-    blocks: (section.blocks || []).map((b: any) => {
-      const base = createBlock(b.type);
-      return {
-        ...base,
-        id: uid(),
-        props: {
-          ...base.props,
-          ...(b.props || {}),
-        },
-      };
-    }),
-  }));
+  return variant.sections.map((section: any) => {
+    // Preserve regions if they exist, fallback to legacy blocks
+    const regions = section.regions;
+    const legacyBlocks = section.blocks || [];
+
+    return {
+      id: uid(),
+      type: section.type || "section",
+      layout: section.canvasLayout || "default",
+      // NEW: Store regions OR flatten legacy blocks
+      regions: regions
+        ? regions.map((region: any) => ({
+            id: uid(),
+            name: region.name,
+            blocks: (region.blocks || []).map((b: any) => {
+              const base = createBlock(b.type);
+              return {
+                ...base,
+                id: uid(),
+                props: {
+                  ...base.props,
+                  ...(b.props || {}),
+                },
+              };
+            }),
+          }))
+        : undefined,
+      // BACKWARDS COMPATIBLE: Keep blocks for old layouts
+      blocks: !regions
+        ? (legacyBlocks || []).map((b: any) => {
+            const base = createBlock(b.type);
+            return {
+              ...base,
+              id: uid(),
+              props: {
+                ...base.props,
+                ...(b.props || {}),
+              },
+            };
+          })
+        : [],
+    };
+  });
 };
 
-const hasProductLayoutContent = (sections: Section[]) =>
-  sections.some(
-    (section) =>
+const hydrateLayoutChildren = (items: any[] = []): LayoutChild[] => {
+  return items.map((item: any) => {
+    const base = createBlock(item.type || "text");
+
+    return {
+      id: uid(),
+      type: item.type || "text",
+      role: item.role || item.name || undefined,
+      props: {
+        ...base.props,
+        ...(item.props || {}),
+      },
+      children: Array.isArray(item.children)
+        ? hydrateLayoutChildren(item.children)
+        : [],
+    };
+  });
+};
+
+const hydrateProductLayout = (variant: any): ProductLayoutInstance | null => {
+  if (!variant) return null;
+
+  const rawChildren =
+    Array.isArray(variant.children) && variant.children.length
+      ? variant.children
+      : Array.isArray(variant.sections)
+      ? variant.sections.map((section: any) => ({
+          type: "layout-region",
+          role: section.canvasLayout || section.type || "section",
+          props: {
+            style: baseStyle({
+              width: "100%",
+              minHeight: "120px",
+            }),
+          },
+          children: Array.isArray(section.regions)
+            ? section.regions.map((region: any) => ({
+                type: "layout-group",
+                role: region.name,
+                props: {
+                  style: baseStyle({
+                    width: "100%",
+                    minHeight: "80px",
+                  }),
+                },
+                children: (region.blocks || []).map((b: any) => ({
+                  type: b.type,
+                  role: b.role || region.name,
+                  props: b.props || {},
+                })),
+              }))
+            : (section.blocks || []).map((b: any) => ({
+                type: b.type,
+                props: b.props || {},
+              })),
+        }))
+      : [];
+
+  return {
+    id: uid(),
+    variantId: variant.id,
+    label: variant.label || variant.title || "Product Layout",
+    layout: variant.canvasLayout || variant.layout || "default",
+    frame: baseStyle({
+      width: "100%",
+      minHeight: "520px",
+      padding: "24px",
+      borderRadius: "24px",
+      backgroundColor: "#ffffff",
+    }),
+    children: hydrateLayoutChildren(rawChildren),
+  };
+};
+
+const hasProductLayoutContent = (
+  sections: Section[],
+  productLayout?: ProductLayoutInstance | null
+) => {
+  if (productLayout?.children?.length) return true;
+
+  return sections.some((section) => {
+    const hasFlatBlocks =
       Array.isArray(section.blocks) &&
       section.blocks.some((block) => {
         const t = String(block?.type || "");
@@ -562,21 +813,26 @@ const hasProductLayoutContent = (sections: Section[]) =>
           t === "table" ||
           t === "stats"
         );
-      })
-  );
+      });
 
-const pushHistory = (state: BuilderState) => {
-  const currentSections =
-    state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
+    const hasRegionBlocks =
+      Array.isArray(section.regions) &&
+      section.regions.some(
+        (region) => Array.isArray(region.blocks) && region.blocks.length > 0
+      );
 
-  return {
-    history: [...state.history, cloneSections(currentSections)],
-    future: [],
-  };
+    return hasFlatBlocks || hasRegionBlocks;
+  });
 };
+
+
 
 export const useBuilder = create<BuilderState>((set, get) => ({
   builderType: "website",
+  currentVariant: null,
+    productLayout: null,
+  selectedNode: null,
+
   sectionsWebsite: initialWebsiteSections,
   sectionsProduct: initialProductSections,
   sections: initialWebsiteSections,
@@ -587,18 +843,23 @@ export const useBuilder = create<BuilderState>((set, get) => ({
   activeLayoutId: null,
   hasRealProductLayout: false,
 
-  setBuilderType: (type) =>
+  
+
+   setBuilderType: (type) =>
     set((state) => ({
       builderType: type,
       sections: type === "website" ? state.sectionsWebsite : state.sectionsProduct,
       hasRealProductLayout:
-        type === "product" ? hasProductLayoutContent(state.sectionsProduct) : false,
+        type === "product"
+          ? hasProductLayoutContent(state.sectionsProduct, state.productLayout)
+          : false,
     })),
 
   setDevice: (device) => set({ currentDevice: device }),
 
   setSelectedBlock: (sectionId, blockId) => set({ selectedBlock: { sectionId, blockId } }),
-
+  setSelectedNode: (node) => set({ selectedNode: node }),
+  clearSelectedNode: () => set({ selectedNode: null }),
   clearSelectedBlock: () => set({ selectedBlock: null }),
 
   addSection: (type, index) =>
@@ -617,59 +878,56 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
         selectedBlock: null,
         hasRealProductLayout:
-          state.builderType === "product"
-            ? hasProductLayoutContent(next)
-            : state.hasRealProductLayout,
+  state.builderType === "product"
+    ? hasProductLayoutContent(next, state.productLayout)
+    : state.hasRealProductLayout,
         ...pushHistory(state),
       };
     }),
 
-  addVariantSection: (variant: any) =>
+    addVariantSection: (variant: any) =>
     set((state) => {
-      const currentSections =
-        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
-
       if (state.builderType !== "product") return state;
 
-      const next = cloneSections(currentSections);
-
-      if (hasProductLayoutContent(next)) {
-        return state;
-      }
-
-      const newSections = hydrateVariantSections(variant);
-      if (!newSections.length) return state;
+      const editableSections = hydrateVariantSections(variant);
+      const layoutInstance = hydrateProductLayout(variant);
 
       return {
-        sections: newSections,
+        sections: editableSections,
         sectionsWebsite: state.sectionsWebsite,
-        sectionsProduct: newSections,
+        sectionsProduct: editableSections,
+        productLayout: layoutInstance,
+        selectedNode: layoutInstance
+          ? { kind: "layout", layoutId: layoutInstance.id }
+          : null,
         selectedBlock: null,
         activeLayoutId: variant?.id || null,
+        currentVariant: variant,
         hasRealProductLayout: true,
         ...pushHistory(state),
       };
     }),
 
-  addLayout: (layoutId: string) =>
+    addLayout: (layoutId: string) =>
     set((state) => {
       if (state.builderType !== "product") return state;
-
       const variant = resolveProductVariant(layoutId);
       if (!variant) return state;
 
-      const currentSections = cloneSections(state.sectionsProduct);
-      if (hasProductLayoutContent(currentSections)) return state;
-
-      const newSections = hydrateVariantSections(variant);
-      if (!newSections.length) return state;
+      const editableSections = hydrateVariantSections(variant);
+      const layoutInstance = hydrateProductLayout(variant);
 
       return {
-        sections: newSections,
+        sections: editableSections,
         sectionsWebsite: state.sectionsWebsite,
-        sectionsProduct: newSections,
+        sectionsProduct: editableSections,
+        productLayout: layoutInstance,
+        selectedNode: layoutInstance
+          ? { kind: "layout", layoutId: layoutInstance.id }
+          : null,
         selectedBlock: null,
         activeLayoutId: layoutId,
+        currentVariant: variant,
         hasRealProductLayout: true,
         ...pushHistory(state),
       };
@@ -678,19 +936,23 @@ export const useBuilder = create<BuilderState>((set, get) => ({
   replaceLayout: (layoutId: string) =>
     set((state) => {
       if (state.builderType !== "product") return state;
-
       const variant = resolveProductVariant(layoutId);
       if (!variant) return state;
 
-      const newSections = hydrateVariantSections(variant);
-      if (!newSections.length) return state;
+      const editableSections = hydrateVariantSections(variant);
+      const layoutInstance = hydrateProductLayout(variant);
 
       return {
-        sections: newSections,
+        sections: editableSections,
         sectionsWebsite: state.sectionsWebsite,
-        sectionsProduct: newSections,
+        sectionsProduct: editableSections,
+        productLayout: layoutInstance,
+        selectedNode: layoutInstance
+          ? { kind: "layout", layoutId: layoutInstance.id }
+          : null,
         selectedBlock: null,
         activeLayoutId: layoutId,
+        currentVariant: variant,
         hasRealProductLayout: true,
         ...pushHistory(state),
       };
@@ -701,15 +963,19 @@ export const useBuilder = create<BuilderState>((set, get) => ({
       const resetSections =
         state.builderType === "website" ? cloneSections(initialWebsiteSections) : cloneSections(initialProductSections);
 
-      return {
+           return {
         sections: resetSections,
         sectionsWebsite: state.builderType === "website" ? resetSections : state.sectionsWebsite,
         sectionsProduct: state.builderType === "product" ? resetSections : state.sectionsProduct,
+        productLayout: state.builderType === "product" ? null : state.productLayout,
+        selectedNode: null,
         selectedBlock: null,
         activeLayoutId: state.builderType === "product" ? null : state.activeLayoutId,
         hasRealProductLayout: state.builderType === "product" ? false : state.hasRealProductLayout,
         ...pushHistory(state),
+        currentVariant: state.builderType === "product" ? null : state.currentVariant,
       };
+
     }),
 
   addBlock: (sectionId, type, index) =>
@@ -735,9 +1001,9 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
         selectedBlock: { sectionId, blockId: block.id },
         hasRealProductLayout:
-          state.builderType === "product"
-            ? hasProductLayoutContent(next)
-            : state.hasRealProductLayout,
+  state.builderType === "product"
+    ? hasProductLayoutContent(next, state.productLayout)
+    : state.hasRealProductLayout,
         ...pushHistory(state),
       };
     }),
@@ -784,9 +1050,9 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
         selectedBlock: { sectionId: targetSection.id, blockId: movedBlock.id },
         hasRealProductLayout:
-          state.builderType === "product"
-            ? hasProductLayoutContent(next)
-            : state.hasRealProductLayout,
+  state.builderType === "product"
+    ? hasProductLayoutContent(next, state.productLayout)
+    : state.hasRealProductLayout,
         ...pushHistory(state),
       };
     }),
@@ -865,45 +1131,179 @@ export const useBuilder = create<BuilderState>((set, get) => ({
       };
     }),
 
-  resizeBlock: (sectionId, blockId, direction, delta) =>
-    set((state) => {
-      const currentSections =
-        state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
+resizeBlock: (sectionId, blockId, direction, delta) =>
+  set((state) => {
+    const currentSections =
+      state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
 
-      const next = cloneSections(currentSections);
-      const section = next.find((s) => s.id === sectionId);
-      const block = section?.blocks.find((b) => b.id === blockId);
-      if (!block) return state;
+    const next = cloneSections(currentSections);
+    const section = next.find((s) => s.id === sectionId);
+    const block = section?.blocks.find((b) => b.id === blockId);
+    if (!block) return state;
 
-      const device = state.currentDevice;
-      block.props.style = block.props.style || baseStyle();
-      const style = block.props.style[device] || {};
+    const device = state.currentDevice;
+    block.props.style = block.props.style || baseStyle();
+    const style = block.props.style[device] || {};
 
-      const currentWidth = parseInt(String(style.width || "100").replace("%", ""), 10);
-      const currentMinHeight = parseInt(String(style.minHeight || "120").replace("px", ""), 10);
+    const currentWidth = parseInt(String(style.width || "100").replace("%", ""), 10);
+    const currentMinHeight = parseInt(String(style.minHeight || "120").replace("px", ""), 10);
 
-      if (direction === "left" || direction === "right") {
-        const nextWidth = Math.max(20, Math.min(100, currentWidth + delta));
-        block.props.style[device] = {
-          ...style,
-          width: `${nextWidth}%`,
-        };
-      }
-
-      if (direction === "top" || direction === "bottom") {
-        const nextMinHeight = Math.max(48, Math.min(1200, currentMinHeight + delta * 4));
-        block.props.style[device] = {
-          ...style,
-          minHeight: `${nextMinHeight}px`,
-        };
-      }
-
-      return {
-        sections: next,
-        sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
-        sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+    if (direction === "left" || direction === "right") {
+      const nextWidth = Math.max(20, Math.min(100, currentWidth + delta));
+      block.props.style[device] = {
+        ...style,
+        width: `${nextWidth}%`,
       };
-    }),
+    }
+
+    if (direction === "top" || direction === "bottom") {
+      const nextMinHeight = Math.max(48, Math.min(1200, currentMinHeight + delta * 4));
+      block.props.style[device] = {
+        ...style,
+        minHeight: `${nextMinHeight}px`,
+      };
+    }
+
+    return {
+      sections: next,
+      sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
+      sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+    };
+  }),
+
+updateLayoutChildProps: (childId, updates) =>
+  set((state) => {
+    if (!state.productLayout) return state;
+
+    const nextLayout: ProductLayoutInstance = {
+      ...state.productLayout,
+      children: updateChildTree(state.productLayout.children, childId, (child) => ({
+        ...child,
+        props: {
+          ...child.props,
+          ...updates,
+        },
+      })),
+    };
+
+    return {
+      productLayout: nextLayout,
+      selectedNode: { kind: "child", layoutId: nextLayout.id, childId },
+      hasRealProductLayout: hasProductLayoutContent(state.sectionsProduct, nextLayout),
+      ...pushHistory(state),
+    };
+  }),
+
+updateLayoutChildStyle: (childId, device, updates) =>
+  set((state) => {
+    if (!state.productLayout) return state;
+
+    const nextLayout: ProductLayoutInstance = {
+      ...state.productLayout,
+      children: updateChildTree(state.productLayout.children, childId, (child) => ({
+        ...child,
+        props: {
+          ...child.props,
+          style: {
+            ...(child.props.style || baseStyle()),
+            [device]: {
+              ...((child.props.style || baseStyle())[device] || {}),
+              ...updates,
+            },
+          },
+        },
+      })),
+    };
+
+    return {
+  productLayout: nextLayout,
+  selectedNode: { kind: "child", layoutId: nextLayout.id, childId },
+  hasRealProductLayout: hasProductLayoutContent(state.sectionsProduct, nextLayout),
+  ...pushHistory(state),
+};
+  }),
+
+resizeLayoutChild: (childId, direction, delta) =>
+  set((state) => {
+    if (!state.productLayout) return state;
+
+    const device = state.currentDevice;
+
+    const nextLayout: ProductLayoutInstance = {
+      ...state.productLayout,
+      children: updateChildTree(state.productLayout.children, childId, (child) => {
+        const styleMap = child.props.style || baseStyle();
+        const style = styleMap[device] || {};
+        const currentWidth = parseInt(String(style.width || "100").replace("%", ""), 10);
+        const currentMinHeight = parseInt(String(style.minHeight || "48").replace("px", ""), 10);
+
+        let nextStyle = { ...style };
+
+        if (direction === "left" || direction === "right") {
+          nextStyle.width = `${Math.max(10, Math.min(100, currentWidth + delta))}%`;
+        }
+
+        if (direction === "top" || direction === "bottom") {
+          nextStyle.minHeight = `${Math.max(24, Math.min(1200, currentMinHeight + delta * 2))}px`;
+        }
+
+        return {
+          ...child,
+          props: {
+            ...child.props,
+            style: {
+              ...styleMap,
+              [device]: nextStyle,
+            },
+          },
+        };
+      }),
+    };
+
+    return {
+  productLayout: nextLayout,
+  selectedNode: { kind: "child", layoutId: nextLayout.id, childId },
+  hasRealProductLayout: hasProductLayoutContent(state.sectionsProduct, nextLayout),
+  ...pushHistory(state),
+};
+  }),
+
+removeLayoutChild: (childId) =>
+  set((state) => {
+    if (!state.productLayout) return state;
+
+    const nextLayout: ProductLayoutInstance = {
+      ...state.productLayout,
+      children: removeChildTree(state.productLayout.children, childId),
+    };
+
+   return {
+  productLayout: nextLayout,
+  selectedNode:
+    state.selectedNode?.kind === "child" && state.selectedNode.childId === childId
+      ? { kind: "layout", layoutId: nextLayout.id }
+      : state.selectedNode,
+  hasRealProductLayout: hasProductLayoutContent(state.sectionsProduct, nextLayout),
+  ...pushHistory(state),
+};
+  }),
+
+duplicateLayoutChild: (childId) =>
+  set((state) => {
+    if (!state.productLayout) return state;
+
+    const nextLayout: ProductLayoutInstance = {
+      ...state.productLayout,
+      children: duplicateChildTree(state.productLayout.children, childId),
+    };
+
+    return {
+  productLayout: nextLayout,
+  selectedNode: state.selectedNode,
+  hasRealProductLayout: hasProductLayoutContent(state.sectionsProduct, nextLayout),
+  ...pushHistory(state),
+};
+  }),
 
   duplicateBlock: (sectionId, blockId) =>
     set((state) => {
@@ -927,9 +1327,9 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
         selectedBlock: { sectionId, blockId: copy.id },
         hasRealProductLayout:
-          state.builderType === "product"
-            ? hasProductLayoutContent(next)
-            : state.hasRealProductLayout,
+  state.builderType === "product"
+    ? hasProductLayoutContent(next, state.productLayout)
+    : state.hasRealProductLayout,
         ...pushHistory(state),
       };
     }),
@@ -951,9 +1351,9 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
         selectedBlock: state.selectedBlock?.blockId === blockId ? null : state.selectedBlock,
         hasRealProductLayout:
-          state.builderType === "product"
-            ? hasProductLayoutContent(next)
-            : state.hasRealProductLayout,
+  state.builderType === "product"
+    ? hasProductLayoutContent(next, state.productLayout)
+    : state.hasRealProductLayout,
         ...pushHistory(state),
       };
     }),
@@ -970,65 +1370,76 @@ export const useBuilder = create<BuilderState>((set, get) => ({
         ? cloneSections(initialProductSections)
         : filtered;
 
-    return {
+        return {
       sections: next,
       sectionsWebsite: state.builderType === "website" ? next : state.sectionsWebsite,
       sectionsProduct: state.builderType === "product" ? next : state.sectionsProduct,
+      productLayout: state.builderType === "product" ? null : state.productLayout,
+      selectedNode: null,
       selectedBlock: null,
       activeLayoutId: state.builderType === "product" ? null : state.activeLayoutId,
+      currentVariant: state.builderType === "product" ? null : state.currentVariant,
       hasRealProductLayout:
         state.builderType === "product"
-          ? hasProductLayoutContent(next)
+          ? hasProductLayoutContent(next, null)
           : state.hasRealProductLayout,
       ...pushHistory(state),
     };
   }),
 
-  undo: () =>
-    set((state) => {
-      if (!state.history.length) return state;
+   undo: () =>
+  set((state) => {
+    if (!state.history.length) return state;
 
-      const previous = state.history[state.history.length - 1];
+    const previous = state.history[state.history.length - 1];
+    const currentSnapshot = makeSnapshot(state);
 
-      return {
-        sections: previous,
-        sectionsWebsite: state.builderType === "website" ? previous : state.sectionsWebsite,
-        sectionsProduct: state.builderType === "product" ? previous : state.sectionsProduct,
-        history: state.history.slice(0, -1),
-        future: [
-          cloneSections(
-            state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct
-          ),
-          ...state.future,
-        ],
-        hasRealProductLayout:
-          state.builderType === "product" ? hasProductLayoutContent(previous) : false,
-      };
-    }),
+    return {
+      sections:
+        state.builderType === "website"
+          ? previous.sectionsWebsite
+          : previous.sectionsProduct,
+      sectionsWebsite: previous.sectionsWebsite,
+      sectionsProduct: previous.sectionsProduct,
+      productLayout: previous.productLayout,
+      activeLayoutId: previous.activeLayoutId,
+      currentVariant: previous.currentVariant,
+      hasRealProductLayout: previous.hasRealProductLayout,
+      selectedNode: null,
+      selectedBlock: null,
+      history: state.history.slice(0, -1),
+      future: [cloneSnapshot(currentSnapshot), ...state.future],
+    };
+  }),
 
-  redo: () =>
-    set((state) => {
-      if (!state.future.length) return state;
+redo: () =>
+  set((state) => {
+    if (!state.future.length) return state;
 
-      const nextFuture = state.future[0];
+    const nextFuture = state.future[0];
+    const currentSnapshot = makeSnapshot(state);
 
-      return {
-        sections: nextFuture,
-        sectionsWebsite: state.builderType === "website" ? nextFuture : state.sectionsWebsite,
-        sectionsProduct: state.builderType === "product" ? nextFuture : state.sectionsProduct,
-        history: [
-          ...state.history,
-          cloneSections(
-            state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct
-          ),
-        ],
-        future: state.future.slice(1),
-        hasRealProductLayout:
-          state.builderType === "product" ? hasProductLayoutContent(nextFuture) : false,
-      };
-    }),
+    return {
+      sections:
+        state.builderType === "website"
+          ? nextFuture.sectionsWebsite
+          : nextFuture.sectionsProduct,
+      sectionsWebsite: nextFuture.sectionsWebsite,
+      sectionsProduct: nextFuture.sectionsProduct,
+      productLayout: nextFuture.productLayout,
+      activeLayoutId: nextFuture.activeLayoutId,
+      currentVariant: nextFuture.currentVariant,
+      hasRealProductLayout: nextFuture.hasRealProductLayout,
+      selectedNode: null,
+      selectedBlock: null,
+      history: [...state.history, cloneSnapshot(currentSnapshot)],
+      future: state.future.slice(1),
+    };
+  }),
 
-  exportData: () => {
+    
+
+   exportData: () => {
     const state = get();
     const currentSections =
       state.builderType === "website" ? state.sectionsWebsite : state.sectionsProduct;
@@ -1037,6 +1448,9 @@ export const useBuilder = create<BuilderState>((set, get) => ({
       builderType: state.builderType,
       currentDevice: state.currentDevice,
       activeLayoutId: state.activeLayoutId,
+      currentVariant: state.currentVariant,
+      productLayout: state.productLayout,
+      selectedNode: state.selectedNode,
       hasRealProductLayout: state.hasRealProductLayout,
       sections: currentSections,
     };

@@ -8,30 +8,85 @@ export const productLibrary = [
     category: "Product",
     description: "Hero-first product page layouts for single product selling.",
     variants: [
-      {
-        id: "standard-product",
-        name: "Standard Product",
-        description: "Classic image, title, price and add to cart flow.",
-        kind: "multi-section",
-        preview: {
-          tone: "classic",
-          density: "balanced",
-          frame: "split",
-          highlights: ["media-left", "details-right", "single-cta"],
+    {
+  id: "standard-product",
+  name: "Standard Product",
+  description: "Classic image, title, price and add to cart flow.",
+  kind: "multi-section",
+  preview: {
+    tone: "classic",
+    density: "balanced",
+    frame: "split",
+    highlights: ["media-left", "details-right", "single-cta"],
+  },
+  tags: ["single product", "classic", "detail"],
+  sections: [
+    {
+      type: "product-standard",
+      canvasLayout: "split-hero",
+      regions: [
+        {
+          name: "media",
+          blocks: [
+            {
+              type: "product-image",
+              props: {
+                src: "https://picsum.photos/900/900?random=101",
+                alt: "Product image",
+                style: {
+                  desktop: { width: "100%", minHeight: "420px" },
+                  tablet: { width: "100%", minHeight: "360px" },
+                  mobile: { width: "100%", minHeight: "280px" },
+                },
+              },
+            },
+          ],
         },
-        tags: ["single product", "classic", "detail"],
-        sections: [
-          {
-            type: "product-standard",
-            blocks: [
-              { type: "image" },
-              { type: "heading", props: { content: "Product Name" } },
-              { type: "text", props: { content: "₹999" } },
-              { type: "button", props: { content: "Add to Cart" } },
-            ],
-          },
-        ],
-      },
+        {
+          name: "details",
+          blocks: [
+            {
+              type: "badge",
+              props: { content: "Best Seller" },
+            },
+            {
+              type: "heading",
+              props: { content: "Product Name" },
+            },
+            {
+              type: "paragraph",
+              props: {
+                content:
+                  "A short product description that explains the key value and why someone should buy it.",
+              },
+            },
+            {
+              type: "product",
+              props: {
+                title: "Product Name",
+                price: "₹999",
+                description: "Product description goes here.",
+              },
+            },
+            {
+              type: "button",
+              props: { content: "Add to Cart" },
+            },
+          ],
+        },
+        {
+          name: "bottom",
+          blocks: [
+            {
+              type: "product-gallery",
+              props: {},
+            },
+          ],
+        },
+      ],
+    },
+  ],
+},
       {
         id: "centered-product",
         name: "Centered Product",

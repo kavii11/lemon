@@ -22,9 +22,17 @@ type BlockType = {
   props?: any;
 };
 
+type RegionType = {
+  id: string;
+  name: string;
+  blocks: BlockType[];
+};
+
 type SectionType = {
   id: string;
   type?: string;
+  layout?: string;
+  regions?: RegionType[];
   blocks: BlockType[];
 };
 
@@ -84,17 +92,37 @@ function SortableBlock({
   });
 
   const currentDevice = useBuilder((state: any) => state.currentDevice);
-  const width = block?.props?.style?.[currentDevice]?.width || "100%";
-  const minHeight = block?.props?.style?.[currentDevice]?.minHeight || "120px";
+const deviceStyle = block?.props?.style?.[currentDevice] || {};
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    width,
-    minHeight,
-    opacity: isDragging ? 0.55 : 1,
-    flexShrink: 0,
-  };
+const compactTypes = [
+  "button",
+  "price",
+  "title",
+  "heading",
+  "text",
+  "badge",
+  "rating",
+  "sku",
+  "stock",
+  "label",
+  "chip",
+  "icon",
+];
+
+const isCompactBlock = compactTypes.includes(block?.type || "");
+
+const width = deviceStyle.width || (isCompactBlock ? "auto" : "100%");
+const minHeight = deviceStyle.minHeight || (isCompactBlock ? "auto" : "120px");
+
+const style: React.CSSProperties = {
+  transform: CSS.Transform.toString(transform),
+  transition,
+  width,
+  minHeight,
+  opacity: isDragging ? 0.55 : 1,
+  flexShrink: 0,
+  alignSelf: isCompactBlock ? "flex-start" : "stretch",
+};
 
   return (
     <div ref={setNodeRef} className="builder-block-shell" style={style}>
@@ -113,7 +141,7 @@ function SectionDropZone({
   onRemoveSection,
   canAddBlock,
 }: {
-  section: SectionType;
+  section: any;  // Updated to handle regions/layout
   onAddBlock: (sectionId: string) => void;
   onRemoveSection: (sectionId: string) => void;
   canAddBlock: boolean;
@@ -126,8 +154,6 @@ function SectionDropZone({
     },
   });
 
-  const layoutClassName = getSectionLayout(section.type);
-
   const sectionClassName = useMemo(() => {
     const base =
       "rounded-2xl border-2 border-dashed bg-white p-4 md:p-6 shadow-sm transition-all";
@@ -137,11 +163,134 @@ function SectionDropZone({
     return `${base} ${tone}`;
   }, [isOver]);
 
+  // NEW: Render by layout with regions
+  const renderRegionBlocks = (blocks: BlockType[] = []) => {
+  if (!blocks.length) {
+    return (
+      <div className="rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 p-6 text-sm text-zinc-500">
+        Drop blocks here
+      </div>
+    );
+  }
+
+  return (
+    <SortableContext
+      items={blocks.map((block: any) => block.id)}
+      strategy={rectSortingStrategy}
+    >
+      <div className="flex flex-col gap-3">
+        {blocks.map((block: any) => (
+          <SortableBlock
+            key={block.id}
+            block={block}
+            sectionId={section.id}
+          />
+        ))}
+      </div>
+    </SortableContext>
+  );
+};
+
+const renderContent = () => {
+  if (Array.isArray(section.regions) && section.regions.length > 0) {
+    const regionMap = Object.fromEntries(
+      section.regions.map((region: any) => [region.name, region])
+    );
+
+    if (section.layout === "split-hero") {
+      const media = regionMap.media;
+      const details = regionMap.details;
+      const bottom = regionMap.bottom;
+
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="space-y-3">{renderRegionBlocks(media?.blocks || [])}</div>
+            <div className="space-y-3">{renderRegionBlocks(details?.blocks || [])}</div>
+          </div>
+
+          {(bottom?.blocks?.length ?? 0) > 0 && (
+            <div className="w-full">{renderRegionBlocks(bottom.blocks)}</div>
+          )}
+        </div>
+      );
+    }
+
+    if (section.layout === "two-column" || section.layout === "split") {
+      const left = regionMap.left || regionMap.media || section.regions[0];
+      const right = regionMap.right || regionMap.details || section.regions[1];
+
+      return (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="space-y-3">{renderRegionBlocks(left?.blocks || [])}</div>
+          <div className="space-y-3">{renderRegionBlocks(right?.blocks || [])}</div>
+        </div>
+      );
+    }
+
+    if (section.layout === "three-column") {
+      return (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {section.regions.map((region: any) => (
+            <div key={region.id} className="space-y-3">
+              {renderRegionBlocks(region.blocks || [])}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (section.layout === "stacked" || section.layout === "default") {
+      return (
+        <div className="space-y-6">
+          {section.regions.map((region: any) => (
+            <div key={region.id} className="w-full">
+              {renderRegionBlocks(region.blocks || [])}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {section.regions.map((region: any) => (
+          <div key={region.id} className="w-full">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
+              {region.name}
+            </div>
+            {renderRegionBlocks(region.blocks || [])}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const layoutClassName = getSectionLayout(section.type);
+
+  return section.blocks?.length ? (
+    <SortableContext
+      items={section.blocks.map((block: any) => block.id)}
+      strategy={rectSortingStrategy}
+    >
+      <div className={layoutClassName}>
+        {section.blocks.map((block: any) => (
+          <SortableBlock key={block.id} block={block} sectionId={section.id} />
+        ))}
+      </div>
+    </SortableContext>
+  ) : (
+    <div className="rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 p-8 text-sm text-zinc-500">
+      Drop blocks here
+    </div>
+  );
+};
+
   return (
     <section ref={setNodeRef} className={sectionClassName}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
-          {section.type || "section"}
+          {section.layout || section.type || "section"}
         </div>
 
         {canAddBlock && (
@@ -166,26 +315,10 @@ function SectionDropZone({
         )}
       </div>
 
-      {section.blocks?.length ? (
-        <SortableContext
-          items={section.blocks.map((block) => block.id)}
-          strategy={rectSortingStrategy}
-        >
-          <div className={layoutClassName}>
-            {section.blocks.map((block) => (
-              <SortableBlock key={block.id} block={block} sectionId={section.id} />
-            ))}
-          </div>
-        </SortableContext>
-      ) : (
-        <div className="rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 p-8 text-sm text-zinc-500">
-          Drop blocks here
-        </div>
-      )}
+      {renderContent()}
     </section>
   );
 }
-
 export default function Canvas() {
   const sections = useBuilder((state: any) => state.sections as SectionType[]);
   const builderType = useBuilder((state: any) => state.builderType);
@@ -198,10 +331,19 @@ export default function Canvas() {
   const [activeItem, setActiveItem] = useState<any>(null);
 
   const hasProductLayout =
-    builderType === "product" &&
-    sections.some(
-      (section) => Array.isArray(section.blocks) && section.blocks.length > 0
-    );
+  builderType === "product" &&
+  sections.some((section) => {
+    const hasFlatBlocks =
+      Array.isArray(section.blocks) && section.blocks.length > 0;
+
+    const hasRegionBlocks =
+      Array.isArray(section.regions) &&
+      section.regions.some(
+        (region) => Array.isArray(region.blocks) && region.blocks.length > 0
+      );
+
+    return hasFlatBlocks || hasRegionBlocks;
+  });
 
   const emptyProductSectionId = sections?.[0]?.id ?? null;
   const deviceFrame = getDeviceFrame(currentDevice);
@@ -311,27 +453,17 @@ export default function Canvas() {
       </div>
 
       {!!activeItem && (
-        <div
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
-          onClick={() => setActiveItem(null)}
-        >
-          <div
-            className="w-full max-w-[1200px] max-h-[90vh] overflow-hidden rounded-3xl bg-white shadow-[0_30px_80px_rgba(0,0,0,0.18)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ComponentLibraryModal
-              item={activeItem}
-              open={!!activeItem}
-              onClose={() => setActiveItem(null)}
-              onInsertVariant={(variant: any) => {
-                if (!variant) return;
-                addVariantSection(variant);
-                setActiveItem(null);
-              }}
-            />
-          </div>
-        </div>
-      )}
+  <ComponentLibraryModal
+    item={activeItem}
+    open={!!activeItem}
+    onClose={() => setActiveItem(null)}
+    onInsertVariant={(variant: any) => {
+      if (!variant) return;
+      addVariantSection(variant);
+      setActiveItem(null);
+    }}
+  />
+)}
     </main>
   );
 }
